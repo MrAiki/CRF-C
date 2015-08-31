@@ -1,7 +1,7 @@
 #include "MEFeature.hpp"
 
 /* コンストラクタ. 重みはデフォルトで1にする. */
-MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.0)
+MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.0, bool is_additive=false)
 {
   /* Nグラムのサイズのセット */
   this->N_gram    = N_gram;
@@ -13,8 +13,9 @@ MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.
   }
   
   /* 今の単語, 重みのセット */
-  this->pattern_y = pattern_y;
-  this->weight    = weight;
+  this->pattern_y   = pattern_y;
+  this->weight      = weight;
+  this->is_additive = is_additive;
 }
   
 /* デストラクタ */
@@ -28,7 +29,7 @@ MEFeature::~MEFeature(void)
 bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
 {
   /* 想定するxのパターン長さがこの素性以上, あるいはyのパターンが一致しなけばfalse */
-  if (xlength > N_gram || test_y != pattern_y) {
+  if (xlength < N_gram || test_y != pattern_y) {
     return false;
   }
 

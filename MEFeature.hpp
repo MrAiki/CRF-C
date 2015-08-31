@@ -1,8 +1,8 @@
 #ifndef MEFEATURE_H_INCLUDED
 #define MEFEATURE_H_INCLUDED
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <string>
 
 /* Maximum Entropy Model （最大エントロピーモデル）の1つの素性を表現するクラス */
 class MEFeature {
@@ -20,9 +20,10 @@ public:
   double model_E;        /* モデルの期待値 */
   double parameter;      /* 素性に付随する, モデルのパラメタ */
   bool   is_marginal;    /* この素性が周辺素性（yのみに依存して活性化する素性）か否（条件付き素性; xにも依存して決まる素性）か */
+  bool   is_additive;    /* この素性は素性総和のために追加された素性か否か */
 
   /* コンストラクタ. */
-  MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight);
+  MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight, bool is_additive);
   /* デストラクタ. pattern_xの解放 */
   ~MEFeature(void);
 
@@ -34,10 +35,8 @@ public:
   /* 仮引数のパターンに対して活性化しているか調べ,
      活性化していればweight*parameterを返す. （エネルギー関数; exp内部計算用）*/
   double checkget_param_weight(int xlength, int *test_x, int test_y);
-  
-private:
   /* パターンチェックのサブルーチン. 活性化していればtrue, していなければfalse */
-  bool check_pattern(int xlength, int *test_x, int test_y);
+  bool   check_pattern(int xlength, int *test_x, int test_y);
 
 };
 

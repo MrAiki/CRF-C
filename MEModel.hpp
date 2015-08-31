@@ -2,6 +2,7 @@
 #define MEMODEL_H_INCLUDED
 
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include <string>
 #include <map>
@@ -12,7 +13,7 @@
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {
 private:
-  FILE                   *fp_buffer;             /* 現在読み込み中のファイルポインタ */
+  std::ifstream          input_file;             /* 現在読み込み中のファイル */
   int                    maxN_gram;              /* 最大Nグラムのサイズ */
   std::vector<MEFeature> features;               /* モデルを構成する素性 */
   std::vector<MEFeature> candidate_features;     /* 学習データから得られた素性候補 */
