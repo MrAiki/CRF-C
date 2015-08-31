@@ -10,25 +10,34 @@
 
 #include "MEFeature.hpp"
 
+const int    DEFAULT_MAX_ITERATION_LEARN = 5000;
+const double DEFAULT_EPSILON_LEARN       = 10e-3;
+const int    DEFAULT_MAX_F_SIZE          = 5000;
+const double DEFAULT_EPSILON_F_SELECTION = 10e-3;
+const int    DEFAULT_MAX_ITERATION_FGAIN = 1000;
+const double DEFAULT_EPSILON_FGAIN       = 10e-3;
+
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {
 private:
   std::ifstream          input_file;             /* 現在読み込み中のファイル */
+  std::string            line_buffer;            /* 読み込みファイルの行文字列バッファ */
+  int                    line_index;             /* 読み込みファイルの行文字列のインデックス. -1は改行時 */
   int                    maxN_gram;              /* 最大Nグラムのサイズ */
   std::vector<MEFeature> features;               /* モデルを構成する素性 */
   std::vector<MEFeature> candidate_features;     /* 学習データから得られた素性候補 */
   double                 *joint_prob;            /* 結合確率分布P(x,y)を表す配列. 1次配列で何とかする. xの長さは(maxN_gram-1)で固定. */
   double                 *cond_prob;             /* 条件付き確率分布P(y|x)を表す配列. */
-  std::map<std::string, int>  word_map;               /* 単語と整数の対応をとる連想配列（ハッシュ） */
+  std::map<std::string, int>  word_map;          /* 単語と整数の対応をとる連想配列（ハッシュ） */
   double                 **norm_factor;          /* 正規化項Z(x). maxN_gram個の1次配列で各次元で1つのパターン長さの正規化項を計算しておく. ex)norm_factor[0]は長さ0でノルム(ユニグラム), norm_factor[1]は長さ1で(単語数)^(1)の長さの一次配列, norm_factor[2]は長さ2 */
   int                    pattern_count;          /* 学習データに表れたパターン総数 */
   int                    pattern_count_bias;     /* 1素性パターンのカウント閾値（これ以下の素性パターンは切り捨て） */
   double                 epsilon_learn;          /* 学習収束判定用の小さな値 */
   int                    max_iteration_learn;    /* 学習の最大繰り返し回数 */
-  double                 epsilon_f_select_gain;       /* 素性選択のゲイン収束判定用の小さな値 */
-  int                    max_iteration_f_select_gain; /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                 epsilon_f_select;            /* 素性選択の尤度収束判定用の小さな値 */
   int                    max_iteration_f_select;      /* 素性選択の最大繰り返し回数（素性の最大数）*/
+  double                 epsilon_f_gain;       /* 素性選択のゲイン収束判定用の小さな値 */
+  int                    max_iteration_f_gain; /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                 max_sum_feature_weight; /* 最大の素性重み和C */
    
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
@@ -40,7 +49,7 @@ private:
   /* 以下, メソッド */
 public:
   /* ファイルから単語列を読み取り, 素性候補, 素性カウント, 単語マップ, 経験分布を作成/更新する */
-  void read_file(FILE* fp);
+  void read_file(std::string filename);
   /* ファイル名の配列を受け取り, 一気に読み込ませる */
   void read_file_str_list(int size, std::string* filenames);
   /* 経験確率分布の計算. カウントバイアスを考慮し, 素性の経験期待値もセットする. (注:カウントのリセットはしないように) */
@@ -59,6 +68,8 @@ public:
   void set_ranking(std::string *pattern_str_x, int ranking_size, std::string *ranking);
 
 private:
+  /* 現在読み込み中のファイルから次の文字を返すサブルーチン */
+  char next_char(void);
   /* 現在読み込み中のファイルから次の単語を返すサブルーチン */
   std::string next_word(void);
   /* 正規化項を計算して配列に結果をセットする */

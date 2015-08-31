@@ -29,7 +29,7 @@ MEFeature::~MEFeature(void)
 bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
 {
   /* 想定するxのパターン長さがこの素性以上, あるいはyのパターンが一致しなけばfalse */
-  if (xlength < N_gram || test_y != pattern_y) {
+  if (xlength > N_gram || test_y != pattern_y) {
     return false;
   }
 
