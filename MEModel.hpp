@@ -10,12 +10,13 @@
 
 #include "MEFeature.hpp"
 
-const int    DEFAULT_MAX_ITERATION_LEARN = 5000;
-const double DEFAULT_EPSILON_LEARN       = 10e-3;
-const int    DEFAULT_MAX_F_SIZE          = 5000;
-const double DEFAULT_EPSILON_F_SELECTION = 10e-3;
-const int    DEFAULT_MAX_ITERATION_FGAIN = 1000;
-const double DEFAULT_EPSILON_FGAIN       = 10e-3;
+/* 学習繰り返し回数・収束判定定数のデフォルト値 */
+static const int    MAX_ITERATION_LEARN = 5000;
+static const double EPSILON_LEARN       = 10e-3;
+static const int    MAX_F_SIZE          = 5000;
+static const double EPSILON_F_SELECTION = 10e-3;
+static const int    MAX_ITERATION_FGAIN = 1000;
+static const double EPSILON_FGAIN       = 10e-3;
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {
@@ -29,6 +30,7 @@ private:
   double                 *joint_prob;            /* 結合確率分布P(x,y)を表す配列. 1次配列で何とかする. xの長さは(maxN_gram-1)で固定. */
   double                 *cond_prob;             /* 条件付き確率分布P(y|x)を表す配列. */
   std::map<std::string, int>  word_map;          /* 単語と整数の対応をとる連想配列（ハッシュ） */
+  int                    unique_word_no;         /* ユニークな単語の数. */
   double                 **norm_factor;          /* 正規化項Z(x). maxN_gram個の1次配列で各次元で1つのパターン長さの正規化項を計算しておく. ex)norm_factor[0]は長さ0でノルム(ユニグラム), norm_factor[1]は長さ1で(単語数)^(1)の長さの一次配列, norm_factor[2]は長さ2 */
   int                    pattern_count;          /* 学習データに表れたパターン総数 */
   int                    pattern_count_bias;     /* 1素性パターンのカウント閾値（これ以下の素性パターンは切り捨て） */
@@ -39,10 +41,13 @@ private:
   double                 epsilon_f_gain;       /* 素性選択のゲイン収束判定用の小さな値 */
   int                    max_iteration_f_gain; /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                 max_sum_feature_weight; /* 最大の素性重み和C */
-   
+
+public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
-  MEModel(int maxN_gram, int pattern_count_bias, int max_iteration_l, double epsilon_l,
-	  int max_iteration_f, double epsilon_f, int max_iteration_fgain, double epsilon_fgain);
+  MEModel(int maxN_gram, int pattern_count_bias,
+	  int max_iteration_l=MAX_ITERATION_LEARN, double epsilon_l=EPSILON_LEARN,
+	  int max_iteration_f=MAX_F_SIZE, double epsilon_f=EPSILON_F_SELECTION,
+	  int max_iteration_fgain=MAX_ITERATION_FGAIN, double epsilon_fgain=EPSILON_FGAIN);
   /* デストラクタ. 分布と正規化項の解放 */
   ~MEModel(void);
 

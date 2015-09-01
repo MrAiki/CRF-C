@@ -1,7 +1,7 @@
 #include "MEFeature.hpp"
 
-/* コンストラクタ. 重みはデフォルトで1にする. */
-MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.0, bool is_additive=false)
+/* コンストラクタ. */
+MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight, bool is_additive)
 {
   /* Nグラムのサイズのセット */
   this->N_gram    = N_gram;
@@ -21,7 +21,9 @@ MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.
 /* デストラクタ */
 MEFeature::~MEFeature(void) 
 {
-  delete pattern_x;
+  if (pattern_x != NULL) {
+    delete pattern_x;
+  }
 }
   
 /* パターンチェックのサブルーチン. 
@@ -38,7 +40,7 @@ bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
     return true;
   }
 
-  /* xのパターンを走査するしてチェック. */
+  /* xのパターンを走査してチェック. */
   for (int i=0; i < (N_gram-1); i++) {
     if (test_x[i] != pattern_x[i]) {
       return false;

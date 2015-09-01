@@ -2,7 +2,7 @@
 #define MEFEATURE_H_INCLUDED
 
 #include <cmath>
-#include <string>
+#include <cstring>
 
 /* Maximum Entropy Model （最大エントロピーモデル）の1つの素性を表現するクラス */
 class MEFeature {
@@ -23,7 +23,7 @@ public:
   bool   is_additive;    /* この素性は素性総和のために追加された素性か否か */
 
   /* コンストラクタ. */
-  MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight, bool is_additive);
+  MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.0f, bool is_additive=false);
   /* デストラクタ. pattern_xの解放 */
   ~MEFeature(void);
 
