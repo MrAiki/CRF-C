@@ -17,6 +17,7 @@ static const int    MAX_F_SIZE          = 5000;
 static const double EPSILON_F_SELECTION = 10e-3;
 static const int    MAX_ITERATION_FGAIN = 1000;
 static const double EPSILON_FGAIN       = 10e-3;
+static const int    MAX_CANDIDATE_F_SIZE = 10000; /* 学習データから得られる候補素性の最大数 */
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {

@@ -1,6 +1,7 @@
 #ifndef MEFEATURE_H_INCLUDED
 #define MEFEATURE_H_INCLUDED
 
+#include <iostream>
 #include <cmath>
 #include <cstring>
 
@@ -23,11 +24,17 @@ public:
   bool   is_additive;    /* この素性は素性総和のために追加された素性か否か */
 
   /* コンストラクタ. */
-  MEFeature(int N_gram, int *pattern_x, int pattern_y, double weight=1.0f, bool is_additive=false);
+  MEFeature(int N_gram, int *pattern_x, int pattern_y, int count=1, double weight=1.0f, bool is_additive=false);
+  /* コピーコンストラクタ.(Vectorを使うので..) */
+  MEFeature(const MEFeature &src);
   /* デストラクタ. pattern_xの解放 */
   ~MEFeature(void);
 
   /* 以下, メソッド */
+private:
+  /* メンバのコピールーチン */
+  MEFeature& copy(const MEFeature &src);
+
 public:
   /* 仮引数のパターンtest_x,test_yに対してこの素性が活性化しているか調べ,
      活性化していたらweightを返し, 活性化していなければ0を返す */
@@ -37,6 +44,8 @@ public:
   double checkget_param_weight(int xlength, int *test_x, int test_y);
   /* パターンチェックのサブルーチン. 活性化していればtrue, していなければfalse */
   bool   check_pattern(int xlength, int *test_x, int test_y);
+  /* 素性情報を表示する. */
+  void print_info(void);
 
 };
 

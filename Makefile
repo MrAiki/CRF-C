@@ -1,8 +1,8 @@
 GCC=g++
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -O0
 
 clean:
-	@rm -rf *.o
+	rm -rf *.o
 
 nextword_test : MEModel.o MEFeature.o nextword_test.cpp
 	$(GCC) $(CFLAGS) -o nextword_test MEModel.o MEFeature.o nextword_test.cpp 
