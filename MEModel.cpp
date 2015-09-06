@@ -77,13 +77,13 @@ std::string MEModel::next_word(void)
    ・単語ハッシュの作成/更新
    ・素性候補の作成
    ・素性の頻度カウント
-   ・経験確率分布のアロケート、作成/更新
 */
 void MEModel::read_file(std::string file_name)
 {
   std::string str_buf;   /* 単語バッファ */
   int *Ngram_buf = new int[maxN_gram]; /* 今と直前(maxN_gram-1)個の単語列. Ngram_buf[maxN_gram-1]が今の単語, Ngram_buf[0]が(maxN_gram-1)個前の単語 */
   std::vector<MEFeature>::iterator f_it; /* 素性のイテレータ */
+  int file_top_count;                    /* ファイル先頭分の読み飛ばし. */
 
   /* ファイルのオープン */
   input_file.open(file_name.c_str(), std::ios::in);
@@ -93,12 +93,13 @@ void MEModel::read_file(std::string file_name)
   }
   
   /* ファイルの終端まで単語を集める */
+  file_top_count = 0;
   while ( (str_buf=next_word()) != "\EOF" ) {
     /* 今まで見たことがない（新しい）単語か判定 */
     if (word_map.count(str_buf) == 0) {
       /* 新しい単語ならば, マップに登録 */
       word_map[str_buf] = unique_word_no++;
-      std::cout << "word \"" << str_buf << "\" assined to " << word_map[str_buf] << std::endl;
+      // std::cout << "word \"" << str_buf << "\" assined to " << word_map[str_buf] << std::endl;
     } 
 
     /* Ngram_bufの更新 */
@@ -110,18 +111,26 @@ void MEModel::read_file(std::string file_name)
     /* 新しいパターンか判定.
        Ngram_bufの長さを変えながら見ていく. */
     for (int gram_len=0; gram_len < maxN_gram; gram_len++) {
+      /* ファイル先頭分の読み飛ばし. */
+      if (file_top_count < gram_len) {
+	file_top_count++;
+	break;
+      }
+
       /* 現在の素性集合を走査し,
 	 既に同じパターンの素性があるかチェック */
       for (f_it = candidate_features.begin();
 	   f_it != candidate_features.end();
 	   f_it++) {
-	if (f_it->check_pattern(gram_len+1,
+	if (f_it->check_pattern(gram_len,
 				&(Ngram_buf[maxN_gram-gram_len-1]),
 				Ngram_buf[maxN_gram-1]) 
-	    == true) {
+	    == true
+	    && gram_len == (f_it->get_N_gram()-1)) {
 	  /* 同じパターンがあったならば, 頻度カウントを更新 */
 	  f_it->count++;
 	  break;
+
 	}
       }
 
@@ -140,9 +149,168 @@ void MEModel::read_file(std::string file_name)
     
   }
 
-  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
-
+  /* ファイルのクローズ */
+  input_file.close();
   /* 解放... */
   delete [] Ngram_buf;
 
 }
+
+/* ファイル名の配列から学習データをセット.
+   得られた素性リストに経験確率と経験期待値をセットする */
+void MEModel::read_file_str_list(int size, std::string *filenames)
+{
+  /* read_fileを全ファイルに適用 */
+  for (int i = 0; i < size; i++) {
+    read_file(filenames[i]);
+  }
+
+  /* 経験確率と経験期待値をセット */
+  set_empirical_prob_E();
+
+  /* 周辺素性フラグのセット */
+  set_marginal_flag();
+
+  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
+}
+
+/* 経験確率/経験期待値を素性にセットする */
+void MEModel::set_empirical_prob_E(void)
+{
+  std::vector<MEFeature>::iterator f_it;     /* 素性のイテレータ */
+  std::vector<MEFeature>::iterator ex_f_it;
+  int sum_count;                             /* 出現した素性頻度総数 */
+  int n_gram, *pattern_x, pattern_y;         /* 経験期待値を計算する素性のパターン */
+
+  /* 頻度総数のカウント. */
+  /* TODO:バイアスpattern_count_biasの考慮 */
+  sum_count = 0;
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+    sum_count += f_it->count;
+  }
+
+  if (sum_count == 0) {
+    std::cerr << "Error : total number of features frequency equal to 0. maybe all of feature's frequency smaller than bias" << std::endl;
+    exit(1);
+  }
+
+  /* 経験確率のセット. 頻度を総数で割るだけ. */
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+    f_it->empirical_prob
+      = (double)(f_it->count) / sum_count;
+    f_it->empirical_E = 0.0f;              /* 期待値のリセット */
+  }
+
+  /* 経験期待値のセット. 
+     (注) 相互に参照して徐々に期待値を加算していくので, ループ内での期待値リセットは禁止 */
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+    /* パターンの取得. これを全素性で得れば全パターンを網羅したことになる. */
+    n_gram    = f_it->get_N_gram();
+    pattern_x = f_it->get_pattern_x();
+    pattern_y = f_it->get_pattern_y();
+
+    /* 計算の方法:一つのパターンについて,
+       他の素性でも活性化していたらその重み*経験確率を足す */
+    for (ex_f_it = candidate_features.begin();
+	 ex_f_it != candidate_features.end();
+	 ex_f_it++) {
+      ex_f_it->empirical_E
+	+= ex_f_it->checkget_weight_emprob(n_gram-1, pattern_x, pattern_y);
+    }
+
+  }
+
+}
+
+/* 周辺素性フラグのセット/更新 */
+void MEModel::set_marginal_flag(void)
+{
+  std::vector<MEFeature>::iterator f_it, ex_f_it, exex_f_it; /* 素性のイテレータ */
+  int xlength, *pattern_x, pattern_y; /* 一つのパターン */
+  int wlength, *pattern_w;            /* もう一つのパターン */
+  bool is_find;
+
+  /* 計算法 : 一つのパターンに対して, 他のpattern_wを持ってきたときに, 素性が異なる値をとった時, 素性は条件付き素性 */
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+
+    is_find = false;
+    for (ex_f_it = candidate_features.begin();
+	 ex_f_it != candidate_features.end();
+	 ex_f_it++) {
+      /* パターンの取得 */
+      xlength   = ex_f_it->get_N_gram() - 1;
+      pattern_x = ex_f_it->get_pattern_x();
+      pattern_y = ex_f_it->get_pattern_y();
+      
+      for (exex_f_it = candidate_features.begin();
+	   exex_f_it != candidate_features.end();
+	   exex_f_it++) {
+	/* 他のXパターンの取得 */
+	wlength   = exex_f_it->get_N_gram() - 1;
+	pattern_w = exex_f_it->get_pattern_x();
+	/* 条件付き素性判定 */
+	if (f_it->checkget_weight(xlength, pattern_x, pattern_y)
+	    !=
+	    f_it->checkget_weight(wlength, pattern_w, pattern_y)) {
+	  f_it->is_marginal = false;
+	  is_find = true;
+	  break;
+	}
+	
+      }
+
+      /* 判定済みならばループを抜ける */
+      if (is_find) break;
+    }
+
+    /* 見つかってなければ, 周辺素性 */
+    if (!is_find) f_it->is_marginal = true;
+  }
+    
+    
+}
+
+/* 候補素性情報の印字 */
+void MEModel::print_candidate_features_info(void)
+{
+  std::vector<MEFeature>::iterator f_it;     /* 素性のイテレータ */  
+
+  std::cout << "******** Feature's info ********" << std::endl;
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+    f_it->print_info();
+    std::cout << "---------------------------------------" << std::endl;
+  }
+  std::cout << "There are " << candidate_features.size() << " candidate features." << std::endl;
+}
+
+/* モデル素性情報の印字 */
+void MEModel::print_model_features_info(void)
+{
+  std::vector<MEFeature>::iterator f_it;     /* 素性のイテレータ */  
+
+  std::cout << "******** Feature's info ********" << std::endl;
+  for (f_it = features.begin();
+       f_it != features.end();
+       f_it++) {
+    f_it->print_info();
+    std::cout << "---------------------------------------" << std::endl;
+  }
+  std::cout << "There are " << candidate_features.size() << " model features." << std::endl;
+
+}  
+
+    
+  
+  
+
+  

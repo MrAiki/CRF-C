@@ -36,12 +36,19 @@ private:
   MEFeature& copy(const MEFeature &src);
 
 public:
+  /* パターンの取得ルーチン */
+  int get_N_gram(void);
+  int *get_pattern_x(void);
+  int get_pattern_y(void);
   /* 仮引数のパターンtest_x,test_yに対してこの素性が活性化しているか調べ,
      活性化していたらweightを返し, 活性化していなければ0を返す */
   double checkget_weight(int xlength, int *test_x, int test_y);
   /* 仮引数のパターンに対して活性化しているか調べ,
      活性化していればweight*parameterを返す. （エネルギー関数; exp内部計算用）*/
   double checkget_param_weight(int xlength, int *test_x, int test_y);
+  /* 仮引数のパターンに対して活性化しているか調べ,
+     活性化していればweight*empirical_probを返す. （経験期待値計算用） */
+  double checkget_weight_emprob(int xlength, int *test_x, int test_y);
   /* パターンチェックのサブルーチン. 活性化していればtrue, していなければfalse */
   bool   check_pattern(int xlength, int *test_x, int test_y);
   /* 素性情報を表示する. */
