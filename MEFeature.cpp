@@ -145,6 +145,19 @@ double MEFeature::checkget_weight_emprob(int xlength, int *test_x, int test_y)
   }
 }
 
+/* パターンの完全一致を確かめるサブルーチン. */
+bool MEFeature::strict_check_pattern(int xlength, int *test_x, int test_y)
+{
+  /* 長さもチェックする */
+  if (xlength == (N_gram-1)
+      && check_pattern(xlength, test_x, test_y)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+
 /* 素性情報を表示する */
 void MEFeature::print_info(void)
 {

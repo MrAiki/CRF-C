@@ -122,11 +122,11 @@ void MEModel::read_file(std::string file_name)
       for (f_it = candidate_features.begin();
 	   f_it != candidate_features.end();
 	   f_it++) {
-	if (f_it->check_pattern(gram_len,
-				&(Ngram_buf[maxN_gram-gram_len-1]),
-				Ngram_buf[maxN_gram-1]) 
-	    == true
-	    && gram_len == (f_it->get_N_gram()-1)) {
+	/* 完全一致で確かめる. 完全一致でないと短いグラムモデルにヒットしやすくなってしまう */
+	if (f_it->strict_check_pattern(gram_len,
+				       &(Ngram_buf[maxN_gram-gram_len-1]),
+				       Ngram_buf[maxN_gram-1]) 
+	    == true) {
 	  /* 同じパターンがあったならば, 頻度カウントを更新 */
 	  f_it->count++;
 	  break;
@@ -177,8 +177,7 @@ void MEModel::read_file_str_list(int size, std::string *filenames)
 /* 経験確率/経験期待値を素性にセットする */
 void MEModel::set_empirical_prob_E(void)
 {
-  std::vector<MEFeature>::iterator f_it;     /* 素性のイテレータ */
-  std::vector<MEFeature>::iterator ex_f_it;
+  std::vector<MEFeature>::iterator f_it, ex_f_it;     /* 素性のイテレータ */
   int sum_count;                             /* 出現した素性頻度総数 */
   int n_gram, *pattern_x, pattern_y;         /* 経験期待値を計算する素性のパターン */
 
@@ -271,11 +270,26 @@ void MEModel::set_marginal_flag(void)
       if (is_find) break;
     }
 
-    /* 見つかってなければ, 周辺素性 */
+    /* 反例が見つかってなければ, 周辺素性 */
     if (!is_find) f_it->is_marginal = true;
   }
     
-    
+}
+
+/* 引数のパターンでの, 全てのモデル素性の(パラメタ*重み)和(=エネルギー関数値)を計算して返す */
+double MEModel::get_sum_param_weight(int xlength, int *test_x, int test_y)
+{
+  std::vector<MEFeature>::iterator f_it;
+  double sum;
+
+  sum = 0;
+  for (f_it = features.begin();
+       f_it != features.end();
+       f_it++) {
+    sum += f_it->checkget_param_weight(xlength, test_x, test_y);
+  }
+
+  return sum;
 }
 
 /* 候補素性情報の印字 */
@@ -305,7 +319,7 @@ void MEModel::print_model_features_info(void)
     f_it->print_info();
     std::cout << "---------------------------------------" << std::endl;
   }
-  std::cout << "There are " << candidate_features.size() << " model features." << std::endl;
+  std::cout << "There are " << features.size() << " model features." << std::endl;
 
 }  
 

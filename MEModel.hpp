@@ -76,8 +76,6 @@ public:
   void print_model_features_info(void);
 
 private:
-  /* 現在読み込み中のファイルから次の文字を返すサブルーチン */
-  char next_char(void);
   /* 現在読み込み中のファイルから次の単語を返すサブルーチン */
   std::string next_word(void);
   /* ファイルから単語列を読み取り, 素性候補, 素性カウント, 単語マップを更新する. */
@@ -86,6 +84,8 @@ private:
   void set_empirical_prob_E(void);
   /* 周辺素性フラグのセット/更新 */
   void set_marginal_flag(void);
+  /* 引数のパターンでの, 全てのモデル素性の(パラメタ*重み)和を計算して返す */
+  double get_sum_param_weight(int xlength, int *test_x, int test_y);
   /* 正規化項を計算して配列に結果をセットする */
   void calc_normalized_factor(void);
   /* ゲイン計算で用いるQ(feature^(pow)|pattern_x)を計算するサブルーチン */

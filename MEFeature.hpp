@@ -23,6 +23,7 @@ public:
   bool   is_marginal;    /* この素性が周辺素性（yのみに依存して活性化する素性）か否（条件付き素性; xにも依存して決まる素性）か */
   bool   is_additive;    /* この素性は素性総和のために追加された素性か否か */
 
+public:
   /* コンストラクタ. */
   MEFeature(int N_gram, int *pattern_x, int pattern_y, int count=1, double weight=1.0f, bool is_additive=false);
   /* コピーコンストラクタ.(Vectorを使うので..) */
@@ -51,6 +52,8 @@ public:
   double checkget_weight_emprob(int xlength, int *test_x, int test_y);
   /* パターンチェックのサブルーチン. 活性化していればtrue, していなければfalse */
   bool   check_pattern(int xlength, int *test_x, int test_y);
+  /* 完全一致を確かめるサブルーチン. 一致していればtrue, していなければfalse */
+  bool strict_check_pattern(int xlength, int *test_x, int test_y);
   /* 素性情報を表示する. */
   void print_info(void);
 
