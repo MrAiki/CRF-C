@@ -1,19 +1,17 @@
 #include "MEFeature.hpp"
 
 /* コンストラクタ. */
-MEFeature::MEFeature(int N_gram, int *pattern_x, int pattern_y, int count, double weight, bool is_additive)
+MEFeature::MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int count, double weight, bool is_additive)
 {
   /* Nグラムのサイズのセット */
-  this->N_gram    = N_gram;
+  this->N_gram = N_gram;
 
   /* ユニグラム（前の単語に注目しない）以上ならば, pattern_xをセットする. */
   if (N_gram > 1) {
-    this->pattern_x = new int[N_gram-1];
-    memcpy(this->pattern_x, pattern_x, sizeof(int) * (N_gram-1));
-  } else if (N_gram == 1) {
-    this->pattern_x = NULL;
-  }
-  
+    this->pattern_x.resize(pattern_x.size());
+    std::copy(pattern_x.begin(), pattern_x.end(), this->pattern_x.begin());
+  }   
+
   /* 今の単語, 重みのセット */
   this->pattern_y   = pattern_y;
   this->weight      = weight;
@@ -35,13 +33,14 @@ MEFeature::MEFeature(const MEFeature &src)
   this->copy(src);
 }
 
-/* デストラクタ */
-MEFeature::~MEFeature(void) 
+/* デフォルトコンストラクタ */
+MEFeature::MEFeature(void)
 {
-  if (pattern_x != NULL && N_gram > 1) {
-    delete [] pattern_x;
-  }
-} 
+  this->pattern_x.clear();
+}
+
+/* デストラクタ */
+MEFeature::~MEFeature(void) { ; } 
 
 /* オブジェクトのコピールーチン */
 MEFeature& MEFeature::copy(const MEFeature &src)
@@ -53,11 +52,10 @@ MEFeature& MEFeature::copy(const MEFeature &src)
   this->N_gram    = src.N_gram;
   this->pattern_y = src.pattern_y;
   if (N_gram > 1) {
-    this->pattern_x = new int[N_gram-1];
-    memcpy(this->pattern_x, src.pattern_x, sizeof(int) * (N_gram-1));
-  } else {
-    this->pattern_x = NULL;
-  }
+    this->pattern_x.resize(src.pattern_x.size());
+    std::copy(src.pattern_x.begin(), src.pattern_x.end(), this->pattern_x.begin());
+  } 
+
   this->weight         = src.weight;
   this->count          = src.count;
   this->empirical_prob = src.empirical_prob;
@@ -76,7 +74,7 @@ int MEFeature::get_N_gram(void)
   return N_gram;
 }
 
-int* MEFeature::get_pattern_x(void)
+std::vector<int> MEFeature::get_pattern_x(void)
 {
   return pattern_x;
 }
@@ -88,10 +86,10 @@ int MEFeature::get_pattern_y(void)
   
 /* パターンチェックのサブルーチン. 
    活性化していればtrue, していなければfalseを返す */
-bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
+bool MEFeature::check_pattern(std::vector<int> test_x, int test_y)
 {
   /* テストするxのパターンの長さがこの素性以下, あるいはyのパターンが一致しなけばfalse */
-  if (xlength < (N_gram-1) || test_y != pattern_y) {
+  if (test_x.size() < (unsigned int)(N_gram-1) || test_y != pattern_y) {
     return false;
   }
 
@@ -103,7 +101,7 @@ bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
   /* xのパターンを走査してチェック. */
   for (int i=0; i < (N_gram-1); i++) {
     /* test_xは末尾の(N_gram-1)文字のみを比較する */
-    if (test_x[xlength-(N_gram-1)+i] != pattern_x[i]) {
+    if (test_x[test_x.size()-(N_gram-1)+i] != pattern_x[i]) {
       return false;
     }
   }
@@ -114,9 +112,9 @@ bool MEFeature::check_pattern(int xlength, int *test_x, int test_y)
 
 /* パターンに対し活性化しているか調べ, 
    活性化していればweightを返し, していなければ0を返す */
-double MEFeature::checkget_weight(int xlength, int *test_x, int test_y)
+double MEFeature::checkget_weight(std::vector<int> test_x, int test_y)
 {
-  if (check_pattern(xlength, test_x, test_y)) {
+  if (check_pattern(test_x, test_y)) {
     return weight; 
   } else {
     return 0.0f;
@@ -125,9 +123,9 @@ double MEFeature::checkget_weight(int xlength, int *test_x, int test_y)
 
 /* パターンに対し活性化しているか調べ, 
    活性化していればparameter*weightを返し, していなければ0を返す */
-double MEFeature::checkget_param_weight(int xlength, int *test_x, int test_y)
+double MEFeature::checkget_param_weight(std::vector<int> test_x, int test_y)
 {
-  if (check_pattern(xlength, test_x, test_y)) {
+  if (check_pattern(test_x, test_y)) {
     return (parameter * weight);
   } else {
     return 0.0f;
@@ -136,9 +134,9 @@ double MEFeature::checkget_param_weight(int xlength, int *test_x, int test_y)
 
 /* 仮引数のパターンに対して活性化しているか調べ,
    活性化していればweight*empirical_probを返す. （経験期待値計算用） */
-double MEFeature::checkget_weight_emprob(int xlength, int *test_x, int test_y) 
+double MEFeature::checkget_weight_emprob(std::vector<int> test_x, int test_y) 
 {
-  if (check_pattern(xlength, test_x, test_y)) {
+  if (check_pattern(test_x, test_y)) {
     return (weight * empirical_prob);
   } else {
     return 0.0f;
@@ -146,11 +144,11 @@ double MEFeature::checkget_weight_emprob(int xlength, int *test_x, int test_y)
 }
 
 /* パターンの完全一致を確かめるサブルーチン. */
-bool MEFeature::strict_check_pattern(int xlength, int *test_x, int test_y)
+bool MEFeature::strict_check_pattern(std::vector<int> test_x, int test_y)
 {
   /* 長さもチェックする */
-  if (xlength == (N_gram-1)
-      && check_pattern(xlength, test_x, test_y)) {
+  if (test_x.size() == (unsigned int)(N_gram-1)
+      && check_pattern(test_x, test_y)) {
     return true;
   } else {
     return false;
