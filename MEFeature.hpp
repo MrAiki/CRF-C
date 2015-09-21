@@ -26,7 +26,7 @@ public:
 
 public:
   /* コンストラクタ. */
-  MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int count=1, double weight=1.0f, bool is_additive=false);
+  MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int count=1, double weight=1.0f);
   /* コピー/デフォルトコンストラクタ.(Vectorを使うので..) */
   MEFeature(const MEFeature &src);
   MEFeature(void);

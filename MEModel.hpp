@@ -4,11 +4,12 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <cfloat>
 #include <string>
 #include <map>
 #include <vector>
 #include <set>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "MEFeature.hpp"
 
@@ -50,6 +51,8 @@ private:
   double                                     epsilon_f_gain;         /* 素性選択のゲイン収束判定用の小さな値 */
   int                                        max_iteration_f_gain;   /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                                     max_sum_feature_weight; /* 最大の素性重み和C */
+  std::map<std::vector<int>, double>         add_feature_weight;     /* 追加素性の重みマップ : パターンxyを突っ込むと重みが得られる */ 
+  std::map<std::vector<int>, double>         add_feature_parameter;  /* 追加素性のパラメタマップ */   
 
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
@@ -74,8 +77,8 @@ public:
   double get_cond_prob(std::string *pattern_str_x, std::string pattern_str_y);
   /* 引数のxの文字列パターンから, 最も確率の高いyを予測として返す */
   std::string predict_y(std::vector<std::string> pattern_str_x);
-  /* 上位ranking_sizeの確率のyを引数のrankingにセットする */
-  void set_ranking(std::vector<std::string> pattern_str_x, std::vector<std::string> ranking);
+  /* 上位ranking_sizeの確率のyを返す */
+  std::vector<std::string> set_ranking(std::vector<std::string> pattern_str_x, int ranking_size);
   /* 候補素性情報の印字 */
   void print_candidate_features_info(void);
   /* モデル素性情報の印字 */
@@ -96,6 +99,8 @@ private:
   double get_sum_param_weight(std::vector<int> test_x, int test_y);
   /* 正規化項を計算してmapに結果をセットする */
   void calc_normalized_factor(void);
+  /* 素性重みの総和を定数にする追加素性f_[n+1]の追加 */
+  void calc_additive_features_weight(void);
   /* ゲイン計算で用いるQ(feature^(pow)|pattern_x)を計算するサブルーチン */
   double calc_alpha_cond_E(int pow, MEFeature feature, int xlength, int *pattern_x, double alpha);
   /* ゲイン計算で用いる正規化項を計算するサブルーチン */

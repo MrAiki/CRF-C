@@ -1,7 +1,7 @@
 #include "MEFeature.hpp"
 
 /* コンストラクタ. */
-MEFeature::MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int count, double weight, bool is_additive)
+MEFeature::MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int count, double weight)
 {
   /* Nグラムのサイズのセット */
   this->N_gram = N_gram;
@@ -17,7 +17,6 @@ MEFeature::MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int 
   /* 今の単語, 重みのセット */
   this->pattern_y   = pattern_y;
   this->weight      = weight;
-  this->is_additive = is_additive;
   this->count       = count;
 
   /* その他メンバを適当に初期化 */
@@ -183,12 +182,6 @@ void MEFeature::print_info(void)
   std::cout << "Model avg.: " << model_E << std::endl;
   std::cout << "Marginal feature?: ";
   if (is_marginal) {
-    std::cout << "Yes" << std::endl;
-  } else {
-    std::cout << "No" << std::endl;
-  }
-  std::cout << "Additive feature(f_[n+1])? ";
-  if (is_additive) {
     std::cout << "Yes" << std::endl;
   } else {
     std::cout << "No" << std::endl;

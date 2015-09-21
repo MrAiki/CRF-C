@@ -172,6 +172,7 @@ void MEModel::read_file_str_list(std::vector<std::string> filenames)
   copy_candidate_features_to_model_features();
   calc_normalized_factor();
   calc_model_prob();
+  calc_additive_features_weight();
 
   std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
 }
@@ -241,44 +242,34 @@ void MEModel::set_empirical_prob_E(void)
 /* 周辺素性フラグのセット/更新 */
 void MEModel::set_marginal_flag(void)
 {
-  std::vector<MEFeature>::iterator f_it, ex_f_it; /* 素性のイテレータ */
-  std::set<std::vector<int> >::iterator x_it;     /* Xのパターンのイテレータ */
-  int pattern_y;                          /* 一つのパターン */
-  std::vector<int> pattern_x, pattern_w;  /* 異なるxのパターン. */
+  std::vector<MEFeature>::iterator f_it;            /* 素性のイテレータ */
+  std::set<std::vector<int> >::iterator x_it, w_it; /* Xのパターンのイテレータ */
   bool is_find;
 
-  /* 計算法 : 一つのパターンに対して, 他のpattern_wを持ってきたときに, 素性が異なる値をとった時, 素性は条件付き素性 */
+  /* 計算法 : 一つのパターンx_it, word_yに対して, 他のw_itを持ってきたときに, 素性が異なる値をとった時, 素性は条件付き素性 */
   for (f_it = features.begin();
        f_it != features.end();
        f_it++) {
 
     is_find = false;
-    /* パターン生成時は候補素性から */
-    for (ex_f_it = candidate_features.begin();
-        ex_f_it != candidate_features.end();
-        ex_f_it++) {
-      /* パターンの取得 */
-      pattern_x = ex_f_it->get_pattern_x();
-      pattern_y = ex_f_it->get_pattern_y();
-
-      for (x_it = setX.begin();
-           x_it != setX.end();
-           x_it++) {
-        /* 条件付き素性判定 */
-        if (f_it->checkget_weight(pattern_x, pattern_y)
-            !=
-            f_it->checkget_weight(*x_it, pattern_y)) {
-          f_it->is_marginal = false;
-          is_find = true;
-          break;
-        }
-	
+    /* 全てのパターンを走査 */
+    for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
+      for (w_it = setX.begin(); w_it != setX.end(); w_it++) {
+	for (int word_y = 0; word_y < unique_word_no; word_y++) {
+	  /* 条件付き素性判定 */
+	  if (f_it->checkget_weight(*w_it, word_y)
+	      != f_it->checkget_weight(*x_it, word_y)) {
+	    f_it->is_marginal = false;
+	    is_find = true;
+	    break;
+	  }
+	}
+	/* 判定済みならば一番外側までループを抜ける(goto?) */
+	if (is_find) break;
       }
 
-      /* 判定済みならばループを抜ける */
       if (is_find) break;
     }
-
     /* 反例が見つかってなければ, 周辺素性 */
     if (!is_find) f_it->is_marginal = true;
   }
@@ -315,10 +306,10 @@ void MEModel::calc_normalized_factor(void)
   set_setY();
 
   /* 結合確率の正規化項の計算... FIXME:嘘!! 全部のパターン和は不可能!! */
+  /*
   joint_norm_factor = 0.0f;
   for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
     for (int word_y = 0; word_y < unique_word_no; word_y++) {
-      /* エネルギー関数値の計算 */
       double energy = 0.0f;
       for (f_it = features.begin();
 	   f_it != features.end();
@@ -328,6 +319,7 @@ void MEModel::calc_normalized_factor(void)
       joint_norm_factor += exp(energy);
     }
   }
+  */
 
   /* 周辺素性の素性から計算できる分marginal_factorを計算 */
   marginal_factor = unique_word_no - setY_marginal.size(); /* |Y-Ym| */
@@ -370,6 +362,11 @@ void MEModel::calc_normalized_factor(void)
 	  energy_z_y_x += f_it->checkget_param_weight(*x_it, *y_x);
 	}
       }
+      /* 追加素性の分も加算 注) 追加素性は全て条件付き素性 */
+      std::vector<int> pattern_xy = *x_it; 
+      pattern_xy.push_back(*y_x);
+      energy_z_y_x 
+	+= add_feature_parameter[pattern_xy] * add_feature_weight[pattern_xy];
       /* z(y|x) - z(y) の加算 */
       norm_factor[*x_it] += exp(energy_z_y) * ( exp(energy_z_y_x) - 1 );
     }
@@ -402,9 +399,11 @@ void MEModel::calc_model_prob(void)
 	   f_it++) {
 	energy += f_it->checkget_param_weight(*x_it, word_y);
       }
-      /* 結合確率・条件付き確率のセット */
+      /* 追加素性の分も加算 */
+      energy += 
+	add_feature_weight[pattern_xy] * add_feature_weight[pattern_xy];
+      /* 条件付き確率のセット */
       cond_prob[pattern_xy]  = exp(energy) / norm_factor[*x_it];
-      joint_prob[pattern_xy] = exp(energy) / joint_norm_factor;
     }
   }
 
@@ -415,25 +414,74 @@ void MEModel::calc_model_prob(void)
     f_it->model_E = 0.0f;
   }
 
-  /* モデル期待値の素性へのセット. 経験確率の時と同様の手法.
-     TODO:間違っとる. xについての和は取れない. 近似して経験分布P~(x)を使って計算しましょう */
+  /* モデル期待値の素性へのセット  */
   for (f_it = features.begin();
        f_it != features.end();
        f_it++) {
     for (x_it = setX.begin();
 	 x_it != setX.end();
 	 x_it++) {
+      /* yについての和 */
+      double sum_y = 0.0f;
       for (int word_y = 0; word_y < unique_word_no; word_y++) {
 	/* 確率分布から取り出すパターンの生成 */
 	pattern_xy.resize((*x_it).size()+1);
 	std::copy((*x_it).begin(), (*x_it).end(), pattern_xy.begin());
 	pattern_xy.push_back(word_y);
-	f_it->model_E
-	  += f_it->checkget_weight(*x_it, word_y) * joint_prob[pattern_xy];
+	sum_y += f_it->checkget_weight(*x_it, word_y) * cond_prob[pattern_xy];
       }
+      /* yについての和に周辺経験分布を掛けて足していき, 近似 */
+      f_it->model_E += sum_y * empirical_x_prob[*x_it];
     }
   }
          
+}
+
+/* 素性重みの総和を定数にする追加素性の重み計算 */
+void MEModel::calc_additive_features_weight(void)
+{
+  double max_sum_xy = -DBL_MAX;                           /* 最大の素性重み和を与えるパターンの, 和の値.(定数C) */
+  std::set<std::vector<int> >::iterator x_it;             /* xのパターンイテレータ */
+  std::vector<MEFeature>::iterator      f_it;             /* 素性のイテレータ */
+  std::map<std::vector<int>, double>::iterator add_f_it;  /* 追加素性のイテレータ */
+
+  for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
+    for (int word_y = 0; word_y < unique_word_no; word_y++) {
+      /* 一つの素性に対して, 重み和をとる */
+      double sum_xy = 0.0f;
+      for (f_it = features.begin();
+	   f_it != features.end();
+	   f_it++) {
+	sum_xy += f_it->checkget_weight(*x_it, word_y);
+      }
+      /* どの素性も活性化しないパターン(和が0) -> 次へ : 要審議 */
+      if (sum_xy < DBL_EPSILON) {
+	continue;
+      }
+      /* 最大値の更新 */
+      if (sum_xy > max_sum_xy) {
+	max_sum_xy = sum_xy;
+      }
+      /* 追加素性のパターン生成, 重み初期化 */
+      std::vector<int> pattern_xy = *x_it;
+      pattern_xy.push_back(word_y);
+      add_feature_weight[pattern_xy] = -sum_xy; /* (後でCを加算) */
+      
+    }
+  }
+      
+  /* 定数Cのセット */
+  max_sum_feature_weight = max_sum_xy;
+
+  /* 追加素性の重み確定 : 全ての重みにCを足す */
+  for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
+    for (int word_y = 0; word_y < unique_word_no; word_y++) {
+      std::vector<int> pattern_xy = *x_it;
+      pattern_xy.push_back(word_y);
+      add_feature_weight[pattern_xy] += max_sum_xy; 
+    }
+  }
+
 }
 
 /* 周辺素性を活性化させるyの集合Ymと, 
