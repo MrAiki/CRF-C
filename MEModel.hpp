@@ -13,40 +13,43 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-static const int    MAX_ITERATION_LEARN = 5000;
-static const double EPSILON_LEARN       = 10e-3;
-static const int    MAX_F_SIZE          = 5000;
-static const double EPSILON_F_SELECTION = 10e-3;
-static const int    MAX_ITERATION_FGAIN = 1000;
-static const double EPSILON_FGAIN       = 10e-3;
-static const int    MAX_CANDIDATE_F_SIZE = 10000; /* 学習データから得られる候補素性の最大数 */
+static const int    MAX_ITERATION_LEARN  = 5000;
+static const double EPSILON_LEARN        = 10e-3;
+static const int    MAX_F_SIZE           = 1000;
+static const double EPSILON_F_SELECTION  = 10e-3;
+static const int    MAX_ITERATION_FGAIN  = 1000;
+static const double EPSILON_FGAIN        = 10e-3;
+static const int    MAX_CANDIDATE_F_SIZE = 5000; /* 学習データから得られる候補素性の最大数 */
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {
 private:
-  std::ifstream          input_file;             /* 現在読み込み中のファイル */
-  std::string            line_buffer;            /* 読み込みファイルの行文字列バッファ */
-  int                    line_index;             /* 読み込みファイルの行文字列のインデックス. -1は改行時 */
-  int                    maxN_gram;              /* 最大Nグラムのサイズ */
-  std::vector<MEFeature> features;               /* モデルを構成する素性 */
-  std::vector<MEFeature> candidate_features;     /* 学習データから得られた素性候補 */
-  std::map<std::vector<int>, double> joint_prob;            /* 結合確率分布P(x,y)を表す配列. パターンはyを末尾にする. */
-  std::map<std::vector<int>, double> cond_prob;             /* 条件付き確率分布P(y|x)を表す配列. こちらもパターンはyを末尾にする. */
+  std::ifstream                              input_file;             /* 現在読み込み中のファイル */
+  std::string                                line_buffer;            /* 読み込みファイルの行文字列バッファ */
+  int                                        line_index;             /* 読み込みファイルの行文字列のインデックス. -1は改行時 */
+  int                                        maxN_gram;              /* 最大Nグラムのサイズ */
+  std::vector<MEFeature>                     features;               /* モデルを構成する素性 */
+  std::vector<MEFeature>                     candidate_features;     /* 学習データから得られた素性候補 */
+  std::map<std::vector<int>, double>         joint_prob;             /* 結合確率分布P(x,y)を表す配列. パターンはyを末尾にする. */
+  std::map<std::vector<int>, double>         cond_prob;              /* 条件付き確率分布P(y|x)を表す配列. こちらもパターンはyを末尾にする. */
+  std::map<std::vector<int>, double>         empirical_x_prob;       /* xの周辺経験分布P~(x) */
   /* 経験確率は素性から入手する */
-  std::map<std::string, int>  word_map;          /* 単語と整数の対応をとる連想配列（ハッシュ） */
-  int                    unique_word_no;         /* ユニークな単語の数. */
-  std::map<std::vector<int>, double>  norm_factor;          /* 正規化項Z(x). パターンを突っ込むと正規化項の値が得られるマップ */
-  std::set<int>          setY_marginal;          /* 周辺素性を活性化させるyの集合Ym */
-  std::map<std::vector<int>, std::set<int> > setY_cond; /* 条件付き素性を活性化させるyの集合Y(x) */
-  int                    pattern_count;          /* 学習データに表れたパターン総数 */
-  int                    pattern_count_bias;     /* 1素性パターンのカウント閾値（これ以下の素性パターンは切り捨て） */
-  double                 epsilon_learn;          /* 学習収束判定用の小さな値 */
-  int                    max_iteration_learn;    /* 学習の最大繰り返し回数 */
-  double                 epsilon_f_select;            /* 素性選択の尤度収束判定用の小さな値 */
-  int                    max_iteration_f_select;      /* 素性選択の最大繰り返し回数（素性の最大数）*/
-  double                 epsilon_f_gain;       /* 素性選択のゲイン収束判定用の小さな値 */
-  int                    max_iteration_f_gain; /* 素性選択のゲイン取得用の最大繰り返し回数 */
-  double                 max_sum_feature_weight; /* 最大の素性重み和C */
+  std::map<std::string, int>                 word_map;               /* 単語と整数の対応をとる連想配列（ハッシュ） */
+  int                                        unique_word_no;         /* ユニークな単語の数(パターンYのサイズ) */
+  std::map<std::vector<int>, double>         norm_factor;            /* 正規化項Z(x). パターンを突っ込むと正規化項の値が得られるマップ */
+  double                                     joint_norm_factor;      /* 結合分布の正規化項Z */
+  std::set<std::vector<int> >                setX;                   /* 学習データに現れたXパターンの集合 TODO:反映 */
+  std::set<int>                              setY_marginal;          /* 周辺素性を活性化させるyの集合Ym */
+  std::map<std::vector<int>, std::set<int> > setY_cond;              /* 条件付き素性を活性化させるyの集合Y(x) */
+  int                                        pattern_count;          /* 学習データに表れたパターン総数 */
+  int                                        pattern_count_bias;     /* 1素性パターンのカウント閾値（これ以下の素性パターンは切り捨て） */
+  double                                     epsilon_learn;          /* 学習収束判定用の小さな値 */
+  int                                        max_iteration_learn;    /* 学習の最大繰り返し回数 */
+  double                                     epsilon_f_select;       /* 素性選択の尤度収束判定用の小さな値 */
+  int                                        max_iteration_f_select; /* 素性選択の最大繰り返し回数（素性の最大数）*/
+  double                                     epsilon_f_gain;         /* 素性選択のゲイン収束判定用の小さな値 */
+  int                                        max_iteration_f_gain;   /* 素性選択のゲイン取得用の最大繰り返し回数 */
+  double                                     max_sum_feature_weight; /* 最大の素性重み和C */
 
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */

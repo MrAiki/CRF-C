@@ -10,7 +10,9 @@ MEFeature::MEFeature(int N_gram, std::vector<int> pattern_x, int pattern_y, int 
   if (N_gram > 1) {
     this->pattern_x.resize(pattern_x.size());
     std::copy(pattern_x.begin(), pattern_x.end(), this->pattern_x.begin());
-  }   
+  } else {
+    pattern_x.clear();
+  }
 
   /* 今の単語, 重みのセット */
   this->pattern_y   = pattern_y;
@@ -36,7 +38,7 @@ MEFeature::MEFeature(const MEFeature &src)
 /* デフォルトコンストラクタ */
 MEFeature::MEFeature(void)
 {
-  this->pattern_x.clear();
+  pattern_x.clear();
 }
 
 /* デストラクタ */
@@ -54,7 +56,9 @@ MEFeature& MEFeature::copy(const MEFeature &src)
   if (N_gram > 1) {
     this->pattern_x.resize(src.pattern_x.size());
     std::copy(src.pattern_x.begin(), src.pattern_x.end(), this->pattern_x.begin());
-  } 
+  } else {
+    pattern_x.clear();
+  }
 
   this->weight         = src.weight;
   this->count          = src.count;
