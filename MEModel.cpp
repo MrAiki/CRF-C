@@ -158,6 +158,8 @@ void MEModel::read_file_str_list(std::vector<std::string> filenames)
 {
 
   std::vector<std::string>::iterator file_it;
+  std::vector<MEFeature>::iterator   f_it;
+
   /* read_fileを全ファイルに適用 */
   for (file_it = filenames.begin();
        file_it != filenames.end();
@@ -165,16 +167,37 @@ void MEModel::read_file_str_list(std::vector<std::string> filenames)
     read_file(*file_it);
   }
 
+  /* pattern_count_bias, カウントバイアスの適用 
+     規定の回数未満の頻度の素性は除外 */
+  bool is_delete; /* 削除を行ったフラグ */
+  /* 削除が発生しなくなるまでループを回す */
+  do {
+    is_delete = false;
+    for (f_it = candidate_features.begin();
+	 f_it != candidate_features.end();
+	 f_it++) {
+      if (f_it->count < pattern_count_bias) {
+	/* バイアス以下の頻度の素性を削除. イテレータを破壊するので,
+	   一旦ループを抜ける */
+	candidate_features.erase(f_it);
+	is_delete = true;
+	break;
+      }
+    }
+  } while (is_delete);
+
+  /* パターン総数の確定 */
+  pattern_count = candidate_features.size();
+
+  //  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
+
   /* 経験確率と経験期待値をセット */
   set_empirical_prob_E();
 
   /* TODO:FIXME:以下はテスト用 */
   copy_candidate_features_to_model_features();
-  calc_normalized_factor();
-  calc_model_prob();
   calc_additive_features_weight();
 
-  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
 }
 
 /* 経験確率/経験期待値を素性にセットする */
@@ -185,7 +208,6 @@ void MEModel::set_empirical_prob_E(void)
   int sum_count;                                   /* 出現した素性頻度総数 */
 
   /* 頻度総数のカウント. */
-  /* TODO:バイアスpattern_count_biasの考慮 */
   sum_count = 0;
   for (f_it = candidate_features.begin();
        f_it != candidate_features.end();
@@ -362,11 +384,7 @@ void MEModel::calc_normalized_factor(void)
 	  energy_z_y_x += f_it->checkget_param_weight(*x_it, *y_x);
 	}
       }
-      /* 追加素性の分も加算 注) 追加素性は全て条件付き素性 */
-      std::vector<int> pattern_xy = *x_it; 
-      pattern_xy.push_back(*y_x);
-      energy_z_y_x 
-	+= add_feature_parameter[pattern_xy] * add_feature_weight[pattern_xy];
+
       /* z(y|x) - z(y) の加算 */
       norm_factor[*x_it] += exp(energy_z_y) * ( exp(energy_z_y_x) - 1 );
     }
@@ -379,9 +397,8 @@ void MEModel::calc_model_prob(void)
 {
   std::vector<MEFeature>::iterator f_it;           /* 素性イテレータ */
   std::set<std::vector<int> >::iterator x_it;      /* 集合Xのイテレータ */
-  std::vector<int> pattern_xy, pattern_x;          /* xyの順に連結したパターンとxのパターン */
 
-  /* まず, 正規化項Z(x), Zの計算 */
+  /* まず, 正規化項Z(x)の計算 */
   calc_normalized_factor();
   
   /* モデルの確率分布の計算 */
@@ -389,8 +406,7 @@ void MEModel::calc_model_prob(void)
     for (int word_y = 0; word_y < unique_word_no; word_y++) {
       /* 確率分布にセットするパターンの生成
 	 xyの順にパターンを連結 */
-      pattern_xy.resize((*x_it).size()+1);
-      std::copy((*x_it).begin(), (*x_it).end(), pattern_xy.begin());
+      std::vector<int> pattern_xy = (*x_it);
       pattern_xy.push_back(word_y);
       /* エネルギー関数値の計算 */
       double energy = 0.0f;
@@ -399,9 +415,6 @@ void MEModel::calc_model_prob(void)
 	   f_it++) {
 	energy += f_it->checkget_param_weight(*x_it, word_y);
       }
-      /* 追加素性の分も加算 */
-      energy += 
-	add_feature_weight[pattern_xy] * add_feature_weight[pattern_xy];
       /* 条件付き確率のセット */
       cond_prob[pattern_xy]  = exp(energy) / norm_factor[*x_it];
     }
@@ -425,8 +438,7 @@ void MEModel::calc_model_prob(void)
       double sum_y = 0.0f;
       for (int word_y = 0; word_y < unique_word_no; word_y++) {
 	/* 確率分布から取り出すパターンの生成 */
-	pattern_xy.resize((*x_it).size()+1);
-	std::copy((*x_it).begin(), (*x_it).end(), pattern_xy.begin());
+	std::vector<int> pattern_xy = (*x_it);
 	pattern_xy.push_back(word_y);
 	sum_y += f_it->checkget_weight(*x_it, word_y) * cond_prob[pattern_xy];
       }
@@ -447,26 +459,21 @@ void MEModel::calc_additive_features_weight(void)
 
   for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
     for (int word_y = 0; word_y < unique_word_no; word_y++) {
-      /* 一つの素性に対して, 重み和をとる */
+      /* 1つのパターンについての素性重み和をとる */
       double sum_xy = 0.0f;
       for (f_it = features.begin();
 	   f_it != features.end();
 	   f_it++) {
 	sum_xy += f_it->checkget_weight(*x_it, word_y);
       }
-      /* どの素性も活性化しないパターン(和が0) -> 次へ : 要審議 */
-      if (sum_xy < DBL_EPSILON) {
-	continue;
-      }
       /* 最大値の更新 */
       if (sum_xy > max_sum_xy) {
 	max_sum_xy = sum_xy;
       }
       /* 追加素性のパターン生成, 重み初期化 */
-      std::vector<int> pattern_xy = *x_it;
+      std::vector<int> pattern_xy = (*x_it);
       pattern_xy.push_back(word_y);
       add_feature_weight[pattern_xy] = -sum_xy; /* (後でCを加算) */
-      
     }
   }
       
@@ -527,6 +534,201 @@ void MEModel::set_setY(void)
   }	  
 
 }
+
+/* 学習:反復スケーリング法による */
+void MEModel::learning(void)
+{
+  int    iteration_count = 0;                 /* 学習繰り返しカウント */
+  double change_amount   = DBL_MAX;           /* 変化量=パラメタ変化のRMS（二乗平均平方根） */
+  std::vector<MEFeature>::iterator f_it;      /* 素性イテレータ */
+  std::vector<double> delta(features.size()); /* パラメタ変化量 */
+
+  /* 学習ループ */
+  calc_model_prob();
+  while (iteration_count < max_iteration_learn
+	 && change_amount > epsilon_learn) {
+    change_amount = 0.0f;
+
+    /* 変化量deltaの計算, 全体の変化量への加算 */
+    for (int i = 0; i < (int)features.size(); i++) {
+      delta[i]
+	= log(features[i].empirical_E/features[i].model_E) / max_sum_feature_weight;
+      change_amount += pow(delta[i],2);
+    }
+
+    /* モデルのパラメタを一斉に変更 */
+    for (int i = 0; i < (int)features.size(); i++) {
+      features[i].parameter += delta[i];
+    }
+
+    /* 確率分布/モデル期待値の再計算 */
+    calc_model_prob();
+    calc_likelihood();
+    
+    /* 全体の変化量, 学習繰り返しカウントの更新 */
+    change_amount = sqrt(change_amount/delta.size());
+    iteration_count++;
+    std::cout << "[" << iteration_count << "] : " << "RMS Change Amount : " << change_amount << ", Likelihood : " << likelihood << std::endl; 
+  }
+}
+
+/* 引数の文字列パターンの条件付き確率P(y|x)を計算して返す */
+double MEModel::get_cond_prob(std::vector<std::string> pattern_x, std::string pattern_y)
+{
+  std::vector<int> pattern_xy;
+
+  /* 文字列を内部表現（整数列）に直す */
+  /* 文字列xパターンを, 最長maxN_gramのパターンに変換
+     pattern_x.size() < maxN_gram-1 の場合は長さはpattern_x.size()に合わせる */
+  for (int i = 0; i < (int)pattern_x.size(); i++) {
+    if (i < (int)pattern_x.size()-(maxN_gram-1)) {
+      continue;
+    }
+    pattern_xy.push_back(word_map[pattern_x[i]]);
+  }
+  pattern_xy.push_back(word_map[pattern_y]);
+
+  std::cout << cond_prob[pattern_xy] << std::endl;
+  return cond_prob[pattern_xy];
+}
+ 
+/* 引数のxの文字列パターンから, 最も確率の高い単語yを予測して返す */ 
+std::string MEModel::predict_y(std::vector<std::string> pattern_x) 
+{
+  double              max_prob;               /* 最大の確率値 */
+  int                 max_prob_index;         /* 最大の確率値を与えるインデックス */
+  std::vector<int>    pattern_xy;             /* パターン */
+  std::map<std::string, int>::iterator map_itr;         /* キーに対応する文字列を探索するイテレータ */
+
+  /* pattern_xを内部表現に直す */
+  for (int i = 0; i < (int)pattern_x.size(); i++) {
+    if (i < (int)pattern_x.size()-(maxN_gram-1)) {
+      continue;
+    }
+    pattern_xy.push_back(word_map[pattern_x[i]]);
+  }
+  
+  /* 最大確率値を与えるyの探索 */
+  max_prob = 0.0f;
+  max_prob_index = -1;
+  for (int word_y = 0; word_y < unique_word_no; word_y++) {
+    /* パターンyを末尾に追加 */
+    pattern_xy.push_back(word_y);
+    /* 最大確率の更新 */
+    if (cond_prob[pattern_xy] > max_prob) {
+      max_prob       = cond_prob[pattern_xy];
+      max_prob_index = word_y;
+    }
+    pattern_xy.pop_back();
+  }
+
+  /* 内部表現（整数）から文字列に変換して返す */
+  for (map_itr = word_map.begin();
+       map_itr != word_map.end();
+       map_itr++) {
+    if (map_itr->second == max_prob_index) {
+      return map_itr->first;
+    }
+  }
+
+  /* make compiler happy */
+  return NULL;
+}
+
+/* 上位ranking_sizeの確率のyを返す */
+std::vector<std::string> MEModel::set_ranking(std::vector<std::string> pattern_x, int ranking_size)
+{
+  /* ランキングのサイズ */
+  int size = ranking_size;
+
+  /* ランキングサイズが大きすぎる時は, 単語数に合わせる */
+  if (ranking_size > unique_word_no) {
+    std::cerr << "Warning : ranking size exceeds number of unique words!" << std::endl;
+    size = unique_word_no;
+  }
+
+  /* ランキング */
+  std::vector<std::string>             ranking(ranking_size); /* ランキング */
+  std::vector<double>                  prob_list(unique_word_no), sorted_prob_list(unique_word_no); /* 各単語の確率値, ソートした確率値リスト */
+  std::vector<int>                     pattern_xy;            /* パターン */
+  std::map<std::string, int>::iterator map_itr;               /* キーに対応する文字列を探索するイテレータ */
+  std::vector<double>::iterator        rank_itr;              /* ランキング */
+
+  /* pattern_xを内部表現に直す */
+  for (int i = 0; i < (int)pattern_x.size(); i++) {
+    if (i < (int)pattern_x.size()-(maxN_gram-1)) {
+      continue;
+    }
+    pattern_xy.push_back(word_map[pattern_x[i]]);
+  }
+
+  /* 確率リストの作成 */
+  for (int word_y = 0; word_y < unique_word_no; word_y++) {
+    /* パターンyを末尾に追加 */
+    pattern_xy.push_back(word_y);
+    /* 確率の取得 */
+    prob_list[word_y] 
+      = sorted_prob_list[word_y] 
+      = cond_prob[pattern_xy];
+    pattern_xy.pop_back();
+  }
+
+  /* ソートした確率リストの生成 */
+  std::sort(sorted_prob_list.begin(), sorted_prob_list.end(), 
+	    std::greater<double>());
+
+  /* ランキングの作成 */
+  bool is_find;
+  std::set<int> finded_y; /* 発見済みのy. (同じ確率だと, 何度も同じyが選ばれる) */
+  for (int rank = 0; rank < size; rank++) {
+    is_find = false;
+    for (int word_y = 0; word_y < unique_word_no; word_y++) {
+      /* rank番目の確率値を与える内部表現を見つけ,
+	 見つけた内部表現から文字列を探し, ランキングにセット */
+      if (fabs(sorted_prob_list[rank] - prob_list[word_y]) < DBL_EPSILON
+	  && finded_y.count(word_y) == 0) {	
+	finded_y.insert(word_y);
+	for (map_itr = word_map.begin();
+	     map_itr != word_map.end();
+	     map_itr++) {
+	  if (map_itr->second == word_y) {
+	    ranking[rank] = map_itr->first;
+	    is_find = true;
+	  }
+	}
+      }
+      if (is_find) break;
+    }
+    std::cout << "Rank " << rank+1 << " : " << ranking[rank];    
+    std::cout << " Prob. : " << sorted_prob_list[rank] << std::endl;
+  }
+
+  return ranking;
+
+}
+
+/* 対数尤度（経験対数尤度）の計算とメンバへのセット */
+void MEModel::calc_likelihood(void)
+{
+  double sum;
+  std::vector<MEFeature>::iterator f_it;
+
+  /* モデルの結合分布は厳密には計算出来ないので, 
+     P(x,y) ~= P~(x)P(y|x)とする. */
+  sum = 0.0f;
+  for (f_it = features.begin();
+       f_it != features.end();
+       f_it++) {
+    std::vector<int> pattern_xy = f_it->get_pattern_x();
+    pattern_xy.push_back(f_it->get_pattern_y());
+    
+    sum += f_it->empirical_prob 
+           * log( empirical_x_prob[f_it->get_pattern_x()] * cond_prob[pattern_xy]);
+  }
+
+  likelihood = sum;
+}
+
 
 /* 候補素性情報の印字 */
 void MEModel::print_candidate_features_info(void)

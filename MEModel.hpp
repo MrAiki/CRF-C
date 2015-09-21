@@ -10,11 +10,12 @@
 #include <vector>
 #include <set>
 #include <cstdlib>
+#include <algorithm>
 
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-static const int    MAX_ITERATION_LEARN  = 5000;
+static const int    MAX_ITERATION_LEARN  = 100;
 static const double EPSILON_LEARN        = 10e-3;
 static const int    MAX_F_SIZE           = 1000;
 static const double EPSILON_F_SELECTION  = 10e-3;
@@ -52,8 +53,8 @@ private:
   int                                        max_iteration_f_gain;   /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                                     max_sum_feature_weight; /* 最大の素性重み和C */
   std::map<std::vector<int>, double>         add_feature_weight;     /* 追加素性の重みマップ : パターンxyを突っ込むと重みが得られる */ 
-  std::map<std::vector<int>, double>         add_feature_parameter;  /* 追加素性のパラメタマップ */   
-
+  double                                     likelihood;             /* モデルの対数尤度 */
+  /* 追加素性にパラメタはいるのか...? 経験確率/期待値は0なのは確実... */
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
   MEModel(int maxN_gram, int pattern_count_bias,
@@ -67,18 +68,16 @@ public:
 public:
   /* ファイル名の配列を受け取り, 一気に読み込ませる. 経験確率/経験期待値をセット/更新する */
   void read_file_str_list(std::vector<std::string> filenames);
-  /* モデルの確率分布の計算. 正規化項と素性の期待値の計算も同時に行う. */
-  void calc_model_prob(void);
   /* 拡張反復スケーリング法で素性パラメタの学習を行う */
   void learning(void);
   /* 素性選択を行う */
   void feature_selection(void);
   /* 引数の文字列パターンの条件付き確率P(y|x)を計算する */
-  double get_cond_prob(std::string *pattern_str_x, std::string pattern_str_y);
+  double get_cond_prob(std::vector<std::string> pattern_x, std::string pattern_y);
   /* 引数のxの文字列パターンから, 最も確率の高いyを予測として返す */
-  std::string predict_y(std::vector<std::string> pattern_str_x);
+  std::string predict_y(std::vector<std::string> pattern_x);
   /* 上位ranking_sizeの確率のyを返す */
-  std::vector<std::string> set_ranking(std::vector<std::string> pattern_str_x, int ranking_size);
+  std::vector<std::string> set_ranking(std::vector<std::string> pattern_x, int ranking_size);
   /* 候補素性情報の印字 */
   void print_candidate_features_info(void);
   /* モデル素性情報の印字 */
@@ -91,6 +90,8 @@ private:
   void read_file(std::string filename);
   /* 経験確率と経験期待値を素性にセット/更新する */
   void set_empirical_prob_E(void);
+  /* モデルの確率分布の計算. 正規化項と素性の期待値の計算も同時に行う. */
+  void calc_model_prob(void);
   /* 周辺素性フラグのセット/更新 */
   void set_marginal_flag(void);
   /* 周辺素性を活性化させる要素の集合Ym, 条件付き素性を活性化させる集合Y(x)のセット */
@@ -105,6 +106,8 @@ private:
   double calc_alpha_cond_E(int pow, MEFeature feature, int xlength, int *pattern_x, double alpha);
   /* ゲイン計算で用いる正規化項を計算するサブルーチン */
   double calc_alpha_norm_factor(MEFeature feature, int xlength, int *pattern_x, double alpha);
+  /* 対数尤度の計算, セット */
+  void calc_likelihood(void);
   /* ゲイン計算で用いる素性追加時の素性の期待値を計算するサブルーチン */
   double calc_alpha_E(MEFeature feature, double alpha);
   /* (テスト用)候補素性をモデル素性にコピーする */
