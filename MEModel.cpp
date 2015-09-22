@@ -137,8 +137,6 @@ void MEModel::read_file(std::string file_name)
         candidate_features.push_back(MEFeature(gram_len+1,
                                                buf_x_pattern,
                                                buf_y_pattern));
-        /* 新しいXパターンの追加を試みる */
-        setX.insert(buf_x_pattern);
         /* パターン数の増加 */
         pattern_count++;
       }
@@ -189,13 +187,29 @@ void MEModel::read_file_str_list(std::vector<std::string> filenames)
   /* パターン総数の確定 */
   pattern_count = candidate_features.size();
 
-  //  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
+  std::cout << "There are " << pattern_count << " unique patterns." << std::endl;
+  std::cout << "There are " << unique_word_no << " unique words" << std::endl;
+
+  /* 素性削除後のパターンXの集合の作成, TODO:word_mapの縮小 */
+  for (f_it = candidate_features.begin();
+       f_it != candidate_features.end();
+       f_it++) {
+         /* 新しいXパターンの追加を試みる */
+        std::vector<int> pattern_x = f_it->get_pattern_x();
+        setX.insert(pattern_x);
+  }
 
   /* 経験確率と経験期待値をセット */
   set_empirical_prob_E();
 
   /* TODO:FIXME:以下はテスト用 */
   copy_candidate_features_to_model_features();
+  /* まず周辺素性のフラグをセット */
+  set_marginal_flag();
+  /* Yの分割も行う */
+  set_setY();
+
+  /* 追加素性の重みを計算 */
   calc_additive_features_weight();
 
 }
@@ -261,39 +275,47 @@ void MEModel::set_empirical_prob_E(void)
 
 }
 
-/* 周辺素性フラグのセット/更新 */
+/* 周辺素性フラグのセット/更新 : ボトルネック... 
+ * ヒューリスティクス:N-gramモデルを使う限り, 周辺素性はユニグラム素性に限る */
 void MEModel::set_marginal_flag(void)
 {
   std::vector<MEFeature>::iterator f_it;            /* 素性のイテレータ */
-  std::set<std::vector<int> >::iterator x_it, w_it; /* Xのパターンのイテレータ */
-  bool is_find;
+  // std::set<std::vector<int> >::iterator x_it, w_it; /* Xのパターンのイテレータ */
+  // bool is_find;
 
   /* 計算法 : 一つのパターンx_it, word_yに対して, 他のw_itを持ってきたときに, 素性が異なる値をとった時, 素性は条件付き素性 */
   for (f_it = features.begin();
        f_it != features.end();
        f_it++) {
 
+    /* ヒューリスティクスを使用 */
+    if (f_it->get_N_gram() == 1) {
+      f_it->is_marginal = true;
+    }
+
+    /* ナイーブな計算
     is_find = false;
-    /* 全てのパターンを走査 */
-    for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
-      for (w_it = setX.begin(); w_it != setX.end(); w_it++) {
-	for (int word_y = 0; word_y < unique_word_no; word_y++) {
-	  /* 条件付き素性判定 */
-	  if (f_it->checkget_weight(*w_it, word_y)
-	      != f_it->checkget_weight(*x_it, word_y)) {
-	    f_it->is_marginal = false;
-	    is_find = true;
-	    break;
-	  }
-	}
-	/* 判定済みならば一番外側までループを抜ける(goto?) */
-	if (is_find) break;
+    // 全てのパターンを走査 
+    for (int word_y = 0; word_y < unique_word_no; word_y++) {
+      for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
+        for (w_it = setX.begin(); w_it != setX.end(); w_it++) {
+          // 条件付き素性判定
+          if (f_it->checkget_weight(*w_it, word_y)
+              != f_it->checkget_weight(*x_it, word_y)) {
+            f_it->is_marginal = false;
+            is_find = true;
+            break;
+          }
+        }
+        // 判定済みならば一番外側までループを抜ける(goto?) 
+        if (is_find) break;
       }
 
       if (is_find) break;
     }
-    /* 反例が見つかってなければ, 周辺素性 */
+    // 反例が見つかってなければ, 周辺素性 
     if (!is_find) f_it->is_marginal = true;
+  */
   }
     
 }
@@ -321,11 +343,6 @@ void MEModel::calc_normalized_factor(void)
   std::vector<MEFeature>::iterator f_it; /* 素性のイテレータ */
   std::set<int>::iterator y_m, y_x;           /* 周辺素性を活性化させる要素の集合Ym, 条件付き素性を活性化させる要素の集合Y(x)のイテレータ */
   std::set<std::vector<int> >::iterator x_it; /* Xのパターンのイテレータ */
-
-  /* まず周辺素性のフラグをセット */
-  set_marginal_flag();
-  /* Yの分割も行う */
-  set_setY();
 
   /* 結合確率の正規化項の計算... FIXME:嘘!! 全部のパターン和は不可能!! */
   /*
@@ -570,12 +587,46 @@ void MEModel::learning(void)
     iteration_count++;
     std::cout << "[" << iteration_count << "] : " << "RMS Change Amount : " << change_amount << ", Likelihood : " << likelihood << std::endl; 
   }
+} 
+
+/* 内部表現のパターンから条件付き確率を得る. 未知のXパターンに対処 */
+double MEModel::get_cond_prob(std::vector<int> pattern_x, int pattern_y)
+{
+  std::vector<int> pattern_xy = pattern_x;
+  pattern_xy.push_back(pattern_y);
+
+  if (norm_factor.count(pattern_x) == 1) {
+    /* 既知のXパターンの時 */
+    return cond_prob[pattern_xy];
+  } else {
+    /* 未知のXパターンの時:その場で確率値を計算 */
+    double norm_factor_x = 0.0f; /* 分母Z(x) */
+    double numerator     = 1.0f; /* 分子(=exp(0)) */
+    std::vector<MEFeature>::iterator f_it;
+    /* ユニグラムのみが活性化するエネルギー関数和がZ(x) */
+    for (f_it = features.begin();
+         f_it != features.end();
+         f_it++) {
+      if (f_it->get_N_gram() == 1) {
+        norm_factor_x += exp(f_it->parameter * f_it->weight);
+        /* パターンyでユニグラムが活性化すれば, 分子の値がそれのみで定まる */
+        if (f_it->get_pattern_y() == pattern_y) {
+          numerator = exp(f_it->parameter * f_it->weight);
+        }
+      }
+    }
+
+    /* (分子/Z(x))が確率値となる */
+    return (numerator / norm_factor_x);
+
+  }
+
 }
 
 /* 引数の文字列パターンの条件付き確率P(y|x)を計算して返す */
-double MEModel::get_cond_prob(std::vector<std::string> pattern_x, std::string pattern_y)
+double MEModel::get_cond_prob_from_str(std::vector<std::string> pattern_x, std::string pattern_y)
 {
-  std::vector<int> pattern_xy;
+  std::vector<int> coded_x;
 
   /* 文字列を内部表現（整数列）に直す */
   /* 文字列xパターンを, 最長maxN_gramのパターンに変換
@@ -584,12 +635,11 @@ double MEModel::get_cond_prob(std::vector<std::string> pattern_x, std::string pa
     if (i < (int)pattern_x.size()-(maxN_gram-1)) {
       continue;
     }
-    pattern_xy.push_back(word_map[pattern_x[i]]);
+    coded_x.push_back(word_map[pattern_x[i]]);
   }
-  pattern_xy.push_back(word_map[pattern_y]);
 
-  std::cout << cond_prob[pattern_xy] << std::endl;
-  return cond_prob[pattern_xy];
+  /* 確率値を取得して返す */
+  return get_cond_prob(coded_x, word_map[pattern_y]);
 }
  
 /* 引数のxの文字列パターンから, 最も確率の高い単語yを予測して返す */ 
@@ -597,7 +647,7 @@ std::string MEModel::predict_y(std::vector<std::string> pattern_x)
 {
   double              max_prob;               /* 最大の確率値 */
   int                 max_prob_index;         /* 最大の確率値を与えるインデックス */
-  std::vector<int>    pattern_xy;             /* パターン */
+  std::vector<int>    coded_x;             /* パターン */
   std::map<std::string, int>::iterator map_itr;         /* キーに対応する文字列を探索するイテレータ */
 
   /* pattern_xを内部表現に直す */
@@ -605,21 +655,18 @@ std::string MEModel::predict_y(std::vector<std::string> pattern_x)
     if (i < (int)pattern_x.size()-(maxN_gram-1)) {
       continue;
     }
-    pattern_xy.push_back(word_map[pattern_x[i]]);
+    coded_x.push_back(word_map[pattern_x[i]]);
   }
   
   /* 最大確率値を与えるyの探索 */
   max_prob = 0.0f;
   max_prob_index = -1;
   for (int word_y = 0; word_y < unique_word_no; word_y++) {
-    /* パターンyを末尾に追加 */
-    pattern_xy.push_back(word_y);
     /* 最大確率の更新 */
-    if (cond_prob[pattern_xy] > max_prob) {
-      max_prob       = cond_prob[pattern_xy];
+    if (get_cond_prob(coded_x, word_y) > max_prob) {
+      max_prob       = get_cond_prob(coded_x, word_y);
       max_prob_index = word_y;
     }
-    pattern_xy.pop_back();
   }
 
   /* 内部表現（整数）から文字列に変換して返す */
@@ -643,14 +690,14 @@ std::vector<std::string> MEModel::set_ranking(std::vector<std::string> pattern_x
 
   /* ランキングサイズが大きすぎる時は, 単語数に合わせる */
   if (ranking_size > unique_word_no) {
-    std::cerr << "Warning : ranking size exceeds number of unique words!" << std::endl;
+    std::cerr << "Warning : ranking size exceeds number of dataset unique words!" << std::endl;
     size = unique_word_no;
   }
 
   /* ランキング */
   std::vector<std::string>             ranking(ranking_size); /* ランキング */
   std::vector<double>                  prob_list(unique_word_no), sorted_prob_list(unique_word_no); /* 各単語の確率値, ソートした確率値リスト */
-  std::vector<int>                     pattern_xy;            /* パターン */
+  std::vector<int>                     coded_x;            /* Xパターン */
   std::map<std::string, int>::iterator map_itr;               /* キーに対応する文字列を探索するイテレータ */
   std::vector<double>::iterator        rank_itr;              /* ランキング */
 
@@ -659,18 +706,15 @@ std::vector<std::string> MEModel::set_ranking(std::vector<std::string> pattern_x
     if (i < (int)pattern_x.size()-(maxN_gram-1)) {
       continue;
     }
-    pattern_xy.push_back(word_map[pattern_x[i]]);
+    coded_x.push_back(word_map[pattern_x[i]]);
   }
 
   /* 確率リストの作成 */
   for (int word_y = 0; word_y < unique_word_no; word_y++) {
-    /* パターンyを末尾に追加 */
-    pattern_xy.push_back(word_y);
     /* 確率の取得 */
     prob_list[word_y] 
       = sorted_prob_list[word_y] 
-      = cond_prob[pattern_xy];
-    pattern_xy.pop_back();
+      = get_cond_prob(coded_x, word_y);
   }
 
   /* ソートした確率リストの生成 */

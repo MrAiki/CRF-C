@@ -15,7 +15,7 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-static const int    MAX_ITERATION_LEARN  = 100;
+static const int    MAX_ITERATION_LEARN  = 5;
 static const double EPSILON_LEARN        = 10e-3;
 static const int    MAX_F_SIZE           = 1000;
 static const double EPSILON_F_SELECTION  = 10e-3;
@@ -32,7 +32,7 @@ private:
   int                                        maxN_gram;              /* 最大Nグラムのサイズ */
   std::vector<MEFeature>                     features;               /* モデルを構成する素性 */
   std::vector<MEFeature>                     candidate_features;     /* 学習データから得られた素性候補 */
-  std::map<std::vector<int>, double>         joint_prob;             /* 結合確率分布P(x,y)を表す配列. パターンはyを末尾にする. */
+  // std::map<std::vector<int>, double>         joint_prob;             /* 結合確率分布P(x,y)を表す配列. パターンはyを末尾にする. */
   std::map<std::vector<int>, double>         cond_prob;              /* 条件付き確率分布P(y|x)を表す配列. こちらもパターンはyを末尾にする. */
   std::map<std::vector<int>, double>         empirical_x_prob;       /* xの周辺経験分布P~(x) */
   /* 経験確率は素性から入手する */
@@ -73,7 +73,7 @@ public:
   /* 素性選択を行う */
   void feature_selection(void);
   /* 引数の文字列パターンの条件付き確率P(y|x)を計算する */
-  double get_cond_prob(std::vector<std::string> pattern_x, std::string pattern_y);
+  double get_cond_prob_from_str(std::vector<std::string> pattern_x, std::string pattern_y);
   /* 引数のxの文字列パターンから, 最も確率の高いyを予測として返す */
   std::string predict_y(std::vector<std::string> pattern_x);
   /* 上位ranking_sizeの確率のyを返す */
@@ -88,6 +88,8 @@ private:
   std::string next_word(void);
   /* ファイルから単語列を読み取り, 素性候補, 素性カウント, 単語マップを更新する. */
   void read_file(std::string filename);
+  /* 内部表現のパターンから条件付き確率を得る. 未知のXパターンに対処 */
+  double get_cond_prob(std::vector<int> pattern_x, int pattern_y);
   /* 経験確率と経験期待値を素性にセット/更新する */
   void set_empirical_prob_E(void);
   /* モデルの確率分布の計算. 正規化項と素性の期待値の計算も同時に行う. */
