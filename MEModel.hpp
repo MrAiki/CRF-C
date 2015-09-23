@@ -20,7 +20,7 @@ static const double EPSILON_LEARN        = 10e-3;
 static const int    MAX_F_SIZE           = 1000;
 static const double EPSILON_F_SELECTION  = 10e-3;
 static const int    MAX_ITERATION_FGAIN  = 1000;
-static const double EPSILON_FGAIN        = 10e-3;
+static const double EPSILON_FGAIN        = 10e-4;
 static const int    MAX_CANDIDATE_F_SIZE = 5000; /* 学習データから得られる候補素性の最大数 */
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
@@ -55,7 +55,7 @@ private:
   int                                        max_iteration_f_gain;   /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                                     max_sum_feature_weight; /* 最大の素性重み和C */
   std::map<std::vector<int>, double>         add_feature_weight;     /* 追加素性の重みマップ : パターンxyを突っ込むと重みが得られる */ 
-  double                                     likelihood;             /* モデルの対数尤度 */
+  double                                     likelihood;             /* モデルの(近似)対数尤度 */
   /* 追加素性にパラメタはいるのか...? 経験確率/期待値は0なのは確実... */
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
@@ -79,7 +79,7 @@ public:
   /* 引数のxの文字列パターンから, 最も確率の高いyを予測として返す */
   std::string predict_y(std::vector<std::string> pattern_x);
   /* 上位ranking_sizeの確率のyを返す */
-  std::vector<std::string> set_ranking(std::vector<std::string> pattern_x, int ranking_size);
+  std::vector<std::string> get_ranking(std::vector<std::string> pattern_x, int ranking_size);
   /* 候補素性情報の印字 */
   void print_candidate_features_info(void);
   /* モデル素性情報の印字 */
@@ -104,12 +104,14 @@ private:
   double get_sum_param_weight(std::vector<int> test_x, int test_y);
   /* 正規化項を計算してmapに結果をセットする */
   void calc_normalized_factor(void);
-  /* 素性重みの総和を定数にする追加素性f_[n+1]の追加 */
+  /* 素性重みの総和を定数にする追加素性f_[n+1]の追加 TODO:追加素性の重みを使用していない. もしかして不要? */
   void calc_additive_features_weight(void);
   /* ゲイン計算で用いるQ(feature^(pow)|pattern_x)を計算するサブルーチン */
-  double calc_alpha_cond_E(int pow, MEFeature feature, int xlength, int *pattern_x, double alpha);
+  double calc_alpha_cond_E(int pow, MEFeature *feature, std::vector<int> pattern_x, double alpha);
   /* ゲイン計算で用いる正規化項を計算するサブルーチン */
-  double calc_alpha_norm_factor(MEFeature feature, int xlength, int *pattern_x, double alpha);
+  double calc_alpha_norm_factor(MEFeature *feature, std::vector<int> pattern_x, double alpha);
+  /* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する */
+  double calc_f_gain(MEFeature *feature, double empirical_E_f, double model_E_f);
   /* 対数尤度の計算, セット */
   void calc_likelihood(void);
   /* ゲイン計算で用いる素性追加時の素性の期待値を計算するサブルーチン */
