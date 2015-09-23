@@ -40,7 +40,9 @@ private:
   int                                        unique_word_no;         /* ユニークな単語の数(パターンYのサイズ) */
   std::map<std::vector<int>, double>         norm_factor;            /* 正規化項Z(x). パターンを突っ込むと正規化項の値が得られるマップ */
   double                                     joint_norm_factor;      /* 結合分布の正規化項Z */
-  std::set<std::vector<int> >                setX;                   /* 学習データに現れたXパターンの集合 TODO:反映 */
+  std::set<std::vector<int> >                setX;                   /* 学習データに現れたXパターンの集合 */
+  std::set<int>                              setY;
+            /* 学習データに現れた単語（Yパターン）の集合 */
   std::set<int>                              setY_marginal;          /* 周辺素性を活性化させるyの集合Ym */
   std::map<std::vector<int>, std::set<int> > setY_cond;              /* 条件付き素性を活性化させるyの集合Y(x) */
   int                                        pattern_count;          /* 学習データに表れたパターン総数 */

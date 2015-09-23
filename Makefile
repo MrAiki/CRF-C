@@ -1,5 +1,5 @@
 GCC=g++
-CFLAGS=-Wall -g -O0
+CFLAGS=-Wall -g -O3
 
 clean:
 	rm -rf *.o
