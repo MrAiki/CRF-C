@@ -15,7 +15,7 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-static const int    MAX_ITERATION_LEARN  = 5;
+static const int    MAX_ITERATION_LEARN  = 50;
 static const double EPSILON_LEARN        = 10e-3;
 static const int    MAX_F_SIZE           = 1000;
 static const double EPSILON_F_SELECTION  = 10e-3;

@@ -581,6 +581,13 @@ void MEModel::learning(void)
   std::vector<MEFeature>::iterator f_it;      /* 素性イテレータ */
   std::vector<double> delta(features.size()); /* パラメタ変化量 */
 
+  /* パラメタ初期化 */
+  for (f_it = features.begin();
+      f_it != features.end();
+      f_it++) {
+    f_it->parameter = 0.0f;
+  }
+
   /* 学習ループ */
   calc_model_prob();
   while (iteration_count < max_iteration_learn
@@ -606,7 +613,7 @@ void MEModel::learning(void)
     /* 全体の変化量, 学習繰り返しカウントの更新 */
     change_amount = sqrt(change_amount/delta.size());
     iteration_count++;
-    std::cout << "[" << iteration_count << "] : " << "RMS Change Amount : " << change_amount << ", Likelihood : " << likelihood << std::endl; 
+    // std::cout << "[" << iteration_count << "] : " << "RMS Change Amount : " << change_amount << ", Log Likelihood : " << likelihood << std::endl; 
   }
 } 
 
@@ -829,8 +836,7 @@ double MEModel::calc_alpha_norm_factor(MEFeature *feature, std::vector<int> patt
   return Z_alpha_x;
 }
 
-/* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する 
-   FIXME:nanを返すことが多数. 計算の正しさ含めチェックすべし. */
+/* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する */
 double MEModel::calc_f_gain(MEFeature *feature, double empirical_E_f, double model_E_f)
 {
   int fgain_iteration = 0;                    /* ニュートン法の更新回数 */
@@ -849,10 +855,11 @@ double MEModel::calc_f_gain(MEFeature *feature, double empirical_E_f, double mod
     newton_sign_extern = -1; newton_sign_inner  = 1;
   }
       
-  /* ニュートン法を回す */
-  alpha_n = 0; alpha_change = DBL_MAX;
+  /* ニュートン法を回し, G'(alpha_n) = 0 なるalpha_nを探す */
+  alpha_n = 0; alpha_change = DBL_MAX, g_pri = DBL_MAX;
   while (fgain_iteration < max_iteration_f_gain
-	 && alpha_change > epsilon_f_gain) {
+	 && fabs(alpha_change) > epsilon_f_gain
+   && fabs(g_pri) > epsilon_f_gain) {
     /* G'(alpha)の計算 */
     g_pri = 0.0f;
     for (x_it = setX.begin(); x_it != setX.end(); x_it++) {
@@ -948,7 +955,7 @@ void MEModel::feature_selection(void)
       /* ニュートン法によるゲイン計算/リストにセット */
       f_gain[f_index] = calc_f_gain(cand_f, cand_f->empirical_E, model_E_f);
 
-      std::cout << "gain[" << f_index << "] : " << f_gain[f_index] << std::endl;
+      // std::cout << "gain[" << f_index << "] : " << f_gain[f_index] << std::endl;
 
       /* 最大ゲイン/インデックスの更新 */
       if (!std::isnan(f_gain[f_index]) && f_gain[f_index] > max_fgain) {
@@ -960,6 +967,7 @@ void MEModel::feature_selection(void)
 
     /* 最大ゲインの素性をモデルに追加 */
     features.push_back(candidate_features[max_index]);
+    std::cout << "Max gain : " << max_fgain << " Num. of features : " << features.size() << std::endl;
     is_added.insert(max_index);
     fsize_iteration++;
 
