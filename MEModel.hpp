@@ -15,13 +15,13 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-static const int    MAX_ITERATION_LEARN  = 50;
-static const double EPSILON_LEARN        = 10e-3;
-static const int    MAX_F_SIZE           = 1000;
-static const double EPSILON_F_SELECTION  = 10e-3;
-static const int    MAX_ITERATION_FGAIN  = 1000;
-static const double EPSILON_FGAIN        = 10e-4;
-static const int    MAX_CANDIDATE_F_SIZE = 5000; /* 学習データから得られる候補素性の最大数 */
+const int    MAX_ITERATION_LEARN  = 50;    /* 学習の最大繰り返し回数 */
+const double EPSILON_LEARN        = 10e-3; /* 学習の収束判定値 */
+const int    MAX_F_SIZE           = 1000;  /* 最大のモデル素性の数 */
+const double EPSILON_F_SELECTION  = 10e-3; /* 素性選択の収束判定値 */
+const int    MAX_ITERATION_FGAIN  = 100;   /* 素性の最大ゲイン（対数尤度近似）を求めるニュートン法の繰り返し回数 */
+const double EPSILON_FGAIN        = 10e-3; /* 素性の最大ゲインを求めるニュートン法の収束判定値 */
+const int    MAX_CANDIDATE_F_SIZE = 10000;  /* 学習データから得られる候補素性の最大数 */
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
 class MEModel {
@@ -70,6 +70,8 @@ public:
 public:
   /* ファイル名の配列を受け取り, 一気に読み込ませる. 経験確率/経験期待値をセット/更新する */
   void read_file_str_list(std::vector<std::string> filenames);
+  /* 学習のセットアップ. フラグ立てやYの分割 */
+  void setup_learning(void);
   /* 拡張反復スケーリング法で素性パラメタの学習を行う */
   void learning(void);
   /* 素性選択を行う */
@@ -111,7 +113,7 @@ private:
   /* ゲイン計算で用いる正規化項を計算するサブルーチン */
   double calc_alpha_norm_factor(MEFeature *feature, std::vector<int> pattern_x, double alpha);
   /* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する */
-  double calc_f_gain(MEFeature *feature, double empirical_E_f, double model_E_f);
+  double calc_f_gain(MEFeature *feature, double model_E_f);
   /* 対数尤度の計算, セット */
   void calc_likelihood(void);
   /* ゲイン計算で用いる素性追加時の素性の期待値を計算するサブルーチン */

@@ -223,15 +223,6 @@ void MEModel::read_file_str_list(std::vector<std::string> filenames)
   /* 経験確率と経験期待値をセット */
   set_empirical_prob_E();
 
-  /* TODO:FIXME:以下はテスト用 */
-  copy_candidate_features_to_model_features();
-  /* まず周辺素性のフラグをセット */
-  set_marginal_flag();
-  /* Yの分割も行う */
-  set_setY();
-
-  /* 追加素性の重みを計算 */
-  calc_additive_features_weight();
 
 
 }
@@ -573,6 +564,17 @@ void MEModel::set_setY(void)
 
 }
 
+/* 学習のセットアップ */
+void MEModel::setup_learning(void)
+{
+  /* 周辺素性のフラグをセット */
+  set_marginal_flag();
+  /* Yの分割も行う */
+  set_setY();
+  /* 追加素性の重みを計算 */
+  calc_additive_features_weight();
+}  
+
 /* 学習:反復スケーリング法による */
 void MEModel::learning(void)
 {
@@ -837,7 +839,7 @@ double MEModel::calc_alpha_norm_factor(MEFeature *feature, std::vector<int> patt
 }
 
 /* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する */
-double MEModel::calc_f_gain(MEFeature *feature, double empirical_E_f, double model_E_f)
+double MEModel::calc_f_gain(MEFeature *feature, double model_E_f)
 {
   int fgain_iteration = 0;                    /* ニュートン法の更新回数 */
   double newton_sign_extern, newton_sign_inner;  /* ニュートン法の符号係数 */
@@ -847,6 +849,7 @@ double MEModel::calc_f_gain(MEFeature *feature, double empirical_E_f, double mod
   /* 素性, Xのイテレータ */
   std::vector<MEFeature>::iterator      f_it;
   std::set<std::vector<int> >::iterator x_it;
+  double empirical_E_f = feature->empirical_E;
   
   /* 更新方向の決定 : E~[f] - E[f]の符号で決定 */
   if (empirical_E_f > model_E_f) {
@@ -897,46 +900,55 @@ double MEModel::calc_f_gain(MEFeature *feature, double empirical_E_f, double mod
 /* 素性選択を行う */
 void MEModel::feature_selection(void)
 {
-  std::set<int> is_added;                                /* 素性が追加済みかどうかのフラグ */
-  std::vector<double> f_gain(candidate_features.size()); /* 素性のゲイン（対数尤度近似増分） */
-  int fsize_iteration = 0;                               /* 素性の追加回数 */
-  std::vector<MEFeature>::iterator f_it;
+  int fsize_iteration = 0;                                     /* 素性の追加回数 */
+  std::set<int> is_added;                                      /* 素性が追加済みかどうかのフラグ */
+  std::vector<double> f_gain(pattern_count);       /* 素性のゲイン（対数尤度近似増分） */
+  std::vector<double> sorted_f_gain(pattern_count); /* 昇順に並べた素性ゲイン */
+  std::vector<MEFeature>::iterator       f_it;
   std::set<std::vector<int> >::iterator  x_it;
-  std::set<int>::iterator          y_it;
+  std::set<int>::iterator                y_it;
+  std::vector<double> sorted_emE_list(pattern_count);
   double model_E_f;
-  double max_fgain; int max_index;
+  double max_fgain;
   MEFeature *cand_f;
 
   /* モデル素性を一旦クリア -> 影響がありそう. 要デバッグ */
   features.clear();
 
-  /* 最初の一回は最も頻度がある素性を選ぶ */
-  int max_freq = 0;
-  for (int i = 0; i < (int)candidate_features.size(); i++) {
-    if (candidate_features[i].count > max_freq) {
-      max_freq  = candidate_features[i].count;
-      max_index = i;
+  int add_size = pattern_count/20;   /* 一回のゲイン計算で追加する素性数 */
+
+  /* 最初は経験期待値を頼りに, 候補素性の1割を追加 */
+  for (int f_i = 0; f_i < pattern_count; f_i++) {
+    sorted_emE_list[f_i] = candidate_features[f_i].empirical_E;
+  }
+  std::sort(sorted_emE_list.begin(), sorted_emE_list.end(), std::greater<double>());
+  for (int top_i = 0; top_i < pattern_count/10; top_i++) {
+    for (int f_i = 0; f_i < pattern_count; f_i++) {
+      if (is_added.count(f_i) == 1) 
+        continue;
+
+      if (fabs(candidate_features[f_i].empirical_E - sorted_emE_list[top_i]) < DBL_EPSILON) {
+        features.push_back(candidate_features[f_i]);
+        is_added.insert(f_i);
+        fsize_iteration++;
+        break;
+      }
     }
-  }  
-  features.push_back(candidate_features[max_index]);
+  }
 
   max_fgain = DBL_MAX;
-  while (fsize_iteration < max_iteration_f_select
-	 && max_fgain > epsilon_f_select) {
-    max_fgain = 0.0f;
+  while (fsize_iteration < max_iteration_f_select && max_fgain > epsilon_f_select) {
     /* まず, 現在の素性で学習 */
-    set_marginal_flag();	 
-    set_setY();
-    calc_additive_features_weight();
+    setup_learning();
     learning();
     
     /* 最大ゲイン（対数尤度増分近似）を与える素性を選ぶ */
     max_fgain = 0.0f;
-      for (int f_index = 0; f_index < (int)candidate_features.size(); f_index++) {
+      for (int f_index = 0; f_index < pattern_count; f_index++) {
       /* 既に加えられた素性ならば飛ばす */
       if (is_added.count(f_index) == 1) {
-	f_gain[f_index] = 0.0f;
-	continue;
+        f_gain[f_index] = sorted_f_gain[f_index] = 0.0f;
+        continue;
       }
       cand_f = &(candidate_features[f_index]);
 
@@ -953,26 +965,43 @@ void MEModel::feature_selection(void)
       //      std::cout << "E[f] : " << model_E_f << " E~[f] : " << cand_f->empirical_E << std::endl;
 
       /* ニュートン法によるゲイン計算/リストにセット */
-      f_gain[f_index] = calc_f_gain(cand_f, cand_f->empirical_E, model_E_f);
+      f_gain[f_index] = sorted_f_gain[f_index] = calc_f_gain(cand_f, model_E_f);
 
       // std::cout << "gain[" << f_index << "] : " << f_gain[f_index] << std::endl;
 
       /* 最大ゲイン/インデックスの更新 */
-      if (!std::isnan(f_gain[f_index]) && f_gain[f_index] > max_fgain) {
-	max_fgain = f_gain[f_index];
-	max_index = f_index;
+      if (f_gain[f_index] > max_fgain) {
+        max_fgain = f_gain[f_index];
       }
 
     }
 
-    /* 最大ゲインの素性をモデルに追加 */
-    features.push_back(candidate_features[max_index]);
-    std::cout << "Max gain : " << max_fgain << " Num. of features : " << features.size() << std::endl;
-    is_added.insert(max_index);
-    fsize_iteration++;
+      /* 素性ゲインのソート. ゲイン上位add_sizeの素性を追加 */
+      std::sort(sorted_f_gain.begin(), sorted_f_gain.end(), std::greater<double>());
+      for (int top_i = 0; top_i < add_size; top_i++) {
+        for (int fgain_inx = 0; fgain_inx < pattern_count; fgain_inx++) {
+          if (is_added.count(fgain_inx) == 1)
+            continue;
+
+          /* 上位ゲインランキングに一致した素性をモデルに追加 */
+          if (fabs(f_gain[fgain_inx] - sorted_f_gain[top_i]) < DBL_EPSILON) {
+            features.push_back(candidate_features[fgain_inx]);
+            is_added.insert(fgain_inx);
+            fsize_iteration++;
+            break;
+          }
+
+        }
+      }
+
+      std::cout << "Max gain : " << max_fgain << " Num. of features : " << features.size() << std::endl;
 
   }
     
+    /* 仕上げに学習 */
+    setup_learning();
+    learning();
+
 }
 
 /* 候補素性情報の印字 */
