@@ -15,11 +15,11 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-const int    MAX_ITERATION_LEARN  = 50;    /* 学習の最大繰り返し回数 */
+const int    MAX_ITERATION_LEARN  = 100;    /* 学習の最大繰り返し回数 */
 const double EPSILON_LEARN        = 10e-3; /* 学習の収束判定値 */
-const int    MAX_F_SIZE           = 1000;  /* 最大のモデル素性の数 */
+const int    MAX_F_SIZE           = 2000;  /* 最大のモデル素性の数 */
 const double EPSILON_F_SELECTION  = 10e-3; /* 素性選択の収束判定値 */
-const int    MAX_ITERATION_FGAIN  = 100;   /* 素性の最大ゲイン（対数尤度近似）を求めるニュートン法の繰り返し回数 */
+const int    MAX_ITERATION_FGAIN  = 100;   /* 素性の最大ゲイン（対数尤度近似）を求めるニュートン法の最大繰り返し回数 */
 const double EPSILON_FGAIN        = 10e-3; /* 素性の最大ゲインを求めるニュートン法の収束判定値 */
 const int    MAX_CANDIDATE_F_SIZE = 10000;  /* 学習データから得られる候補素性の最大数 */
 
@@ -55,7 +55,10 @@ private:
   int                                        max_iteration_f_gain;   /* 素性選択のゲイン取得用の最大繰り返し回数 */
   double                                     max_sum_feature_weight; /* 最大の素性重み和C */
   std::map<std::vector<int>, double>         add_feature_weight;     /* 追加素性の重みマップ : パターンxyを突っ込むと重みが得られる */ 
-  double                                     likelihood;             /* モデルの(近似)対数尤度 */
+  double                                     add_feature_parameter;  /* 追加素性のパラメタ */
+  double                                     add_feature_empirical_E; /* 追加素性の経験期待値 */
+  double                                     add_feature_model_E;     /* 追加素性のモデル期待値 */
+  double                                     likelihood;             /* モデルの(近似)対数尤度 */ 
   /* 追加素性にパラメタはいるのか...? 経験確率/期待値は0なのは確実... */
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */
@@ -70,8 +73,6 @@ public:
 public:
   /* ファイル名の配列を受け取り, 一気に読み込ませる. 経験確率/経験期待値をセット/更新する */
   void read_file_str_list(std::vector<std::string> filenames);
-  /* 学習のセットアップ. フラグ立てやYの分割 */
-  void setup_learning(void);
   /* 拡張反復スケーリング法で素性パラメタの学習を行う */
   void learning(void);
   /* 素性選択を行う */
@@ -98,10 +99,12 @@ private:
   void set_empirical_prob_E(void);
   /* モデルの確率分布の計算. 正規化項と素性の期待値の計算も同時に行う. */
   void calc_model_prob(void);
+  /* 学習のセットアップ. 周辺素性のフラグ立てやYの分割 */
+  void setup_learning(void);
   /* 周辺素性フラグのセット/更新 */
   void set_marginal_flag(void);
   /* 周辺素性を活性化させる要素の集合Ym, 条件付き素性を活性化させる集合Y(x)のセット */
-  void set_setY(void);
+  void sepalate_setY(void);
   /* 引数のパターンでの, 全てのモデル素性の(パラメタ*重み)和を計算して返す */
   double get_sum_param_weight(std::vector<int> test_x, int test_y);
   /* 正規化項を計算してmapに結果をセットする */
@@ -118,6 +121,10 @@ private:
   void calc_likelihood(void);
   /* ゲイン計算で用いる素性追加時の素性の期待値を計算するサブルーチン */
   double calc_alpha_E(MEFeature feature, double alpha);
+  /* 内部表現の整数から文字列に変換して返す */
+  std::string convert_pattern_to_string(int pattern);
+  /* 素性情報の印字(パターンを文字列で) */
+  void print_features_info(std::vector<MEFeature> *feature_list);
   /* (テスト用)候補素性をモデル素性にコピーする */
   void copy_candidate_features_to_model_features(void);
   

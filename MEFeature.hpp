@@ -22,7 +22,6 @@ public:
   double model_E;        /* モデルの期待値 */
   double parameter;      /* 素性に付随する, モデルのパラメタ */
   bool   is_marginal;    /* この素性が周辺素性（yのみに依存して活性化する素性）か否（条件付き素性; xにも依存して決まる素性）か */
-  bool   is_additive;    /* この素性は素性総和のために追加された素性か否か */
 
 public:
   /* コンストラクタ. */

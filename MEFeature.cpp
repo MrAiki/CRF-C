@@ -66,7 +66,6 @@ MEFeature& MEFeature::copy(const MEFeature &src)
   this->model_E        = src.model_E;
   this->parameter      = src.parameter;
   this->is_marginal    = src.is_marginal;
-  this->is_additive    = src.is_additive;
 
   return *this;
 }
