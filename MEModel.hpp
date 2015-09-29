@@ -15,7 +15,7 @@
 #include "MEFeature.hpp"
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
-const int    MAX_ITERATION_LEARN  = 100;    /* 学習の最大繰り返し回数 */
+const int    MAX_ITERATION_LEARN  = 1000;    /* 学習の最大繰り返し回数 */
 const double EPSILON_LEARN        = 10e-3; /* 学習の収束判定値 */
 const int    MAX_F_SIZE           = 2000;  /* 最大のモデル素性の数 */
 const double EPSILON_F_SELECTION  = 10e-3; /* 素性選択の収束判定値 */
@@ -105,11 +105,13 @@ private:
   void set_marginal_flag(void);
   /* 周辺素性を活性化させる要素の集合Ym, 条件付き素性を活性化させる集合Y(x)のセット */
   void sepalate_setY(void);
+  /* 追加素性の重みを引数パターンから得る */
+  double get_add_feature_weight(std::vector<int> pattern_x, int pattern_y);
   /* 引数のパターンでの, 全てのモデル素性の(パラメタ*重み)和を計算して返す */
   double get_sum_param_weight(std::vector<int> test_x, int test_y);
   /* 正規化項を計算してmapに結果をセットする */
   void calc_normalized_factor(void);
-  /* 素性重みの総和を定数にする追加素性f_[n+1]の追加 TODO:追加素性の重みを使用していない. もしかして不要? */
+  /* 素性重みの総和を定数にする追加素性f_[n+1]の追加 */
   void calc_additive_features_weight(void);
   /* ゲイン計算で用いるQ(feature^(pow)|pattern_x)を計算するサブルーチン */
   double calc_alpha_cond_E(int pow, MEFeature *feature, std::vector<int> pattern_x, double alpha);

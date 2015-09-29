@@ -50,6 +50,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
+  bool is_all = (extension_list.size() == 0);
   /* 読み込みファイルの走査 */
   for (; optind < argc; optind++) {
     fs::path path(argv[optind]);
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
       /* ディレクトリの場合 : ディレクトリ以下を走査 */
       fs::recursive_directory_iterator last;
       for ( fs::recursive_directory_iterator itr(path); itr != last; itr++ ) {
-        if (extension_list.count(itr->path().extension().string()) > 0) {
+        if (is_all || extension_list.count(itr->path().extension().string()) > 0) {
           std::cout << "GET: " << itr->path() << std::endl;
           read_file_name_buf.push_back(("./" + itr->path().string()));
         }
@@ -70,11 +71,12 @@ int main(int argc, char **argv)
     }
   }
 
+  /* モデルの生成, 素性選択 */
   model = new MEModel(maxN_gram, count_bias);
   model->read_file_str_list(read_file_name_buf);
-  model->print_candidate_features_info();
+  //model->print_candidate_features_info();
   model->feature_selection();
-  model->print_model_features_info();
+  //model->print_model_features_info();
 
   /* REPL(インタラクティブ)に使いたい... */
   std::string repl_line;
@@ -83,7 +85,7 @@ int main(int argc, char **argv)
     std::vector<std::string> pattern;
     std::cout << std::endl;
     std::cout << ">> ";
-    std::cin >> repl_line;
+    std::getline(std::cin, repl_line);
     if (repl_line == "quit") {
       break;
     } else {
@@ -92,6 +94,7 @@ int main(int argc, char **argv)
     }
   }
 
+  delete model;
   return 0;
 
 }
@@ -100,7 +103,7 @@ int main(int argc, char **argv)
 static void print_usage(void)
 {
   std::cout << "Usage :" << std::endl;
-  std::cout << "./mepredict [-g maxN_gram] [-c count_bias] [-s] [-l filename] [-e extensions] filedir" << std::endl;
+  std::cout << "./mepredict [-g maxN_gram] [-c count_bias] [-s] [-l filename] -e extensions filedir" << std::endl;
   std::cout << "-g maxN_gram(int) : set maximum N-gram model length to maxN_gram" << std::endl;
   std::cout << "-c count_bias(int) : set count bias to count_bias." << std::endl;
   std::cout << "-s : save model features." << std::endl;
