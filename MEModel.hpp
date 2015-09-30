@@ -18,9 +18,9 @@
 const int    MAX_ITERATION_LEARN  = 1000;    /* 学習の最大繰り返し回数 */
 const double EPSILON_LEARN        = 10e-3; /* 学習の収束判定値 */
 const int    MAX_F_SIZE           = 2000;  /* 最大のモデル素性の数 */
-const double EPSILON_F_SELECTION  = 10e-3; /* 素性選択の収束判定値 */
+const double EPSILON_F_SELECTION  = 10e-4; /* 素性選択の収束判定値 */
 const int    MAX_ITERATION_FGAIN  = 100;   /* 素性の最大ゲイン（対数尤度近似）を求めるニュートン法の最大繰り返し回数 */
-const double EPSILON_FGAIN        = 10e-3; /* 素性の最大ゲインを求めるニュートン法の収束判定値 */
+const double EPSILON_FGAIN        = 10e-4; /* 素性の最大ゲインを求めるニュートン法の収束判定値 */
 const int    MAX_CANDIDATE_F_SIZE = 10000;  /* 学習データから得られる候補素性の最大数 */
 
 /* Maximum Entropy Model（最大エントロピーモデル）のモデルを表現するクラス */
@@ -118,7 +118,7 @@ private:
   /* ゲイン計算で用いる正規化項を計算するサブルーチン */
   double calc_alpha_norm_factor(MEFeature *feature, std::vector<int> pattern_x, double alpha);
   /* 引数の素性を加えた時のゲイン（対数尤度増分近似）を計算する */
-  double calc_f_gain(MEFeature *feature, double model_E_f);
+  double calc_f_gain(MEFeature *feature);
   /* 対数尤度の計算, セット */
   void calc_likelihood(void);
   /* ゲイン計算で用いる素性追加時の素性の期待値を計算するサブルーチン */
@@ -127,6 +127,8 @@ private:
   std::string convert_pattern_to_string(int pattern);
   /* 素性情報の印字(パターンを文字列で) */
   void print_features_info(std::vector<MEFeature> *feature_list);
+  /* モデルの確率分布を表示 */
+  void print_model_cond_prob(void);
   /* (テスト用)候補素性をモデル素性にコピーする */
   void copy_candidate_features_to_model_features(void);
   
