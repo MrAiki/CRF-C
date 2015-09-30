@@ -963,7 +963,7 @@ void MEModel::feature_selection(void)
 
       /* ニュートン法によるゲイン計算/リストにセット */
       f_gain[f_index] = sorted_f_gain[f_index] = calc_f_gain(&(candidate_features[f_index]));
-      std::cout << "gain[" << f_index << "] : " << f_gain[f_index] << std::endl;
+      //std::cout << "gain[" << f_index << "] : " << f_gain[f_index] << std::endl;
 
       /* 最大ゲイン/インデックスの更新 */
       if (f_gain[f_index] > max_fgain) {
