@@ -16,7 +16,7 @@
 
 /* 学習繰り返し回数・収束判定定数のデフォルト値 */
 const int    MAX_ITERATION_LEARN  = 1000;    /* 学習の最大繰り返し回数 */
-const double EPSILON_LEARN        = 10e-3; /* 学習の収束判定値 */
+const double EPSILON_LEARN        = 10e-4; /* 学習の収束判定値 */
 const int    MAX_F_SIZE           = 2000;  /* 最大のモデル素性の数 */
 const double EPSILON_F_SELECTION  = 10e-4; /* 素性選択の収束判定値 */
 const int    MAX_ITERATION_FGAIN  = 100;   /* 素性の最大ゲイン（対数尤度近似）を求めるニュートン法の最大繰り返し回数 */
@@ -59,6 +59,7 @@ private:
   double                                     add_feature_empirical_E; /* 追加素性の経験期待値 */
   double                                     add_feature_model_E;     /* 追加素性のモデル期待値 */
   double                                     likelihood;             /* モデルの(近似)対数尤度 */ 
+  double                                     KLdivergence;           /* 経験確率分布とモデル確率分布のKLダイバージェンス */
   /* 追加素性にパラメタはいるのか...? 経験確率/期待値は0なのは確実... */
 public:   
   /* コンストラクタ. maxN_gram以外はデフォルト値を付けておきたい */

@@ -157,7 +157,6 @@ bool MEFeature::strict_check_pattern(std::vector<int> test_x, int test_y)
   }
 }
 
-
 /* 素性情報を表示する */
 void MEFeature::print_info(void)
 {

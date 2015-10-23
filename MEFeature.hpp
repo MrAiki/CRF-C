@@ -6,6 +6,7 @@
 #include <cstring>
 #include <vector>
 
+
 /* Maximum Entropy Model （最大エントロピーモデル）の1つの素性を表現するクラス */
 class MEFeature {
 private:
